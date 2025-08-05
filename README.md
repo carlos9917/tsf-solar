@@ -8,9 +8,10 @@ installing dependencies locally with `uv` and pip
 
 Install `uv`  locally with  `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
+
 Then do:
 ```
-uv venv .venv
+uv venv .venv --python 3.11
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
