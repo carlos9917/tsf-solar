@@ -1,0 +1,178 @@
+
+---
+title: "Exploratory Data Analysis: Germany Solar & Demand Case Study"
+author: "Carlos Peralta"
+format: html
+jupyter: python3
+---
+
+# Introduction
+
+This notebook presents exploratory data analysis (EDA) for two tasks:
+1. **Solar Power Generation Forecasting** (June 2025)
+2. **Detecting True Demand Growth in a Solar-Rich Energy System** (2020–present)
+
+We analyze grid-scale solar, demand, and meteorological data, and examine causality between solar output and observed demand.
+
+---
+
+# Data Loading
+
+```{python}
+import pandas as pd
+
+# Load datasets
+solar_q1 = pd.read_csv('germany_solar_observation_q1.csv', parse_dates=['DateTime'])
+atm_q1 = pd.read_csv('germany_atm_features_q1.csv', parse_dates=['DateTime'])
+demand_q2 = pd.read_csv('germany_electricity_demand_observation_q2.csv', parse_dates=['DateTime'])
+atm_q2 = pd.read_csv('germany_atm_features_q2.csv', parse_dates=['DateTime'])
+solar_q2 = pd.read_csv('germany_solar_observation_q2.csv', parse_dates=['DateTime'])
+```
+
+---
+
+# 1. Solar Power Forecasting EDA
+
+## Data Overview
+
+```{python}
+print(solar_q1.head())
+print(atm_q1.head())
+print(solar_q1.describe())
+print(atm_q1.describe())
+```
+
+## Merge and Feature Engineering
+
+```{python}
+solar_merged = pd.merge(solar_q1, atm_q1, on='DateTime', how='inner')
+solar_merged['hour'] = solar_merged['DateTime'].dt.hour
+solar_merged['month'] = solar_merged['DateTime'].dt.month
+solar_merged['dayofweek'] = solar_merged['DateTime'].dt.dayofweek
+```
+
+## Solar Power by Hour of Day
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10,5))
+sns.boxplot(x='hour', y='power', data=solar_merged)
+plt.title('Solar Power by Hour of Day')
+plt.xlabel('Hour')
+plt.ylabel('Solar Power (MWh)')
+plt.tight_layout()
+plt.show()
+```
+
+## Correlation Heatmap
+
+```{python}
+plt.figure(figsize=(10,8))
+corr = solar_merged.drop(columns=['DateTime']).corr()
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm')
+plt.title('Correlation Heatmap (Solar Power & Features)')
+plt.tight_layout()
+plt.show()
+```
+
+## Time Series Plot (Sample June)
+
+```{python}
+sample_june = solar_merged[solar_merged['month'] == 6].head(720)
+plt.figure(figsize=(15,5))
+plt.plot(sample_june['DateTime'], sample_june['power'], label='Solar Power')
+plt.plot(sample_june['DateTime'], sample_june['surface_solar_radiation_downwards'], label='Solar Irradiance')
+plt.legend()
+plt.title('Solar Power & Irradiance (Sample June)')
+plt.xlabel('DateTime')
+plt.ylabel('Value')
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+# 2. Demand & BTM Analysis EDA
+
+## Data Overview
+
+```{python}
+print(demand_q2.head())
+print(solar_q2.head())
+print(atm_q2.head())
+```
+
+## Merge and Feature Engineering
+
+```{python}
+demand_merged = demand_q2.merge(solar_q2, on='DateTime', how='inner', suffixes=('_demand', '_solar'))
+demand_merged = demand_merged.merge(atm_q2, on='DateTime', how='inner')
+demand_merged['hour'] = demand_merged['DateTime'].dt.hour
+demand_merged['month'] = demand_merged['DateTime'].dt.month
+demand_merged['dayofweek'] = demand_merged['DateTime'].dt.dayofweek
+```
+
+## Correlation Heatmap
+
+```{python}
+plt.figure(figsize=(10,8))
+corr_q2 = demand_merged[['demand','power','surface_solar_radiation_downwards','temperature_2m','total_cloud_cover','hour']].corr()
+sns.heatmap(corr_q2, annot=True, fmt='.2f', cmap='coolwarm')
+plt.title('Q2 Correlation Heatmap (Demand, Solar, Weather)')
+plt.tight_layout()
+plt.show()
+```
+
+## Time Series Plot (Sample Week)
+
+```{python}
+sample_week = demand_merged.head(24*7)
+plt.figure(figsize=(15,5))
+plt.plot(sample_week['DateTime'], sample_week['demand'], label='Demand')
+plt.plot(sample_week['DateTime'], sample_week['power'], label='Grid Solar Power')
+plt.legend()
+plt.title('Demand & Grid Solar Power (Sample Week)')
+plt.xlabel('DateTime')
+plt.ylabel('MWh')
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+# 3. Causality Analysis: Granger Causality
+
+We test if solar power "Granger-causes" demand (i.e., if past solar output helps predict current demand).
+
+```{python}
+from statsmodels.tsa.stattools import grangercausalitytests
+
+gc_data = demand_merged[['demand','power']].dropna()
+maxlag = 24
+granger_result = grangercausalitytests(gc_data[['demand','power']], maxlag=maxlag, verbose=False)
+p_values = [round(granger_result[i+1][0]['ssr_ftest'][1],4) for i in range(maxlag)]
+min_p = min(p_values)
+min_lag = p_values.index(min_p)+1
+print('Minimum p-value:', min_p, 'at lag', min_lag)
+```
+
+**Interpretation:**  
+A very low p-value (<< 0.05) at short lags indicates that solar output is a statistically significant predictor of demand, supporting the hypothesis that BTM solar generation obscures true demand.
+
+---
+
+# Summary
+
+- Solar power shows strong diurnal and seasonal cycles, highly correlated with irradiance and negatively with cloud cover.
+- Observed demand dips during solar peaks, and Granger causality confirms solar output is a significant predictor of demand.
+- These findings motivate the need for BTM estimation and true demand reconstruction in subsequent modeling.
+
+---
+
+# Next Steps
+
+- Feature engineering (add holidays, astronomical features, external BTM stats)
+- Model development and uncertainty quantification for both forecasting and demand growth analysis
+
