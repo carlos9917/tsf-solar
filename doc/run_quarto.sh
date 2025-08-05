@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 
-NBOOK=carra_quarto_example_west.qmd
-NBOOK=carra_quarto_example_means.qmd
-NBOOK=$1
-#create the html
-quarto preview $NBOOK --no-browser --no-watch-inputs
+# This script renders the Quarto notebooks for the case study.
 
-#can also use
-#quarto render $NBOOK 
-#quarto render $NBOOK --to pdf
+echo "Rendering notebook for Question 1..."
+quarto render eda_question_1.qmd --to html
 
+echo "Rendering notebook for Question 2..."
+quarto render eda_question_2.qmd --to html
 
-#convert to ipynb
-#quarto convert $NBOOK
+echo "Done."

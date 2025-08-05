@@ -1,0 +1,103 @@
+---
+title: "EDA for Question 1: Solar Power Generation Forecasting"
+author: "Carlos Peralta"
+format: html
+jupyter: python3
+date: "5 August 2025"
+date-modified: last-modified
+lang: en
+execute:
+  echo: true
+---
+
+## Introduction
+
+This document performs an Exploratory Data Analysis (EDA) for Question 1 of the case study, which focuses on forecasting solar power generation in Germany. We will analyze the provided datasets to understand their structure, identify patterns, and find correlations that will be useful for building a predictive model.
+
+## Setup
+
+Loading the necessary libraries for data manipulation, visualization, and analysis.
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(skimr)
+library(arrow)
+```
+
+## Data Loading and Preparation
+
+We load the two datasets relevant to Question 1:
+- `germany_atm_features_q1.csv`: Meteorological data.
+- `germany_solar_observation_q1.csv`: Solar power generation data.
+
+These datasets are then merged into a single dataframe for easier analysis.
+
+```{r}
+#| label: load-data
+atm_q1 <- read_csv("../data/germany_atm_features_q1.csv")
+solar_q1 <- read_csv("../data/germany_solar_observation_q1.csv")
+
+data_q1 <- solar_q1 %>%
+  left_join(atm_q1, by = "DateTime")
+```
+
+## Initial Data Exploration
+
+Let's get a summary of the combined dataset.
+
+```{r}
+#| label: skim-data
+skimr::skim(data_q1)
+```
+
+## Time Series Visualization
+
+Visualizing the solar power generation and key meteorological features over time.
+
+### Solar Power Generation
+
+```{r}
+#| label: plot-power
+plot_ly(data_q1, x = ~DateTime, y = ~power, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Solar Power Generation over Time",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Power (MWh)"))
+```
+
+The plot shows a clear seasonal pattern, with higher generation during summer months and lower generation in winter. There is also a daily pattern where power generation peaks during the day.
+
+### Surface Solar Radiation
+
+```{r}
+#| label: plot-radiation
+plot_ly(data_q1, x = ~DateTime, y = ~surface_solar_radiation_downwards, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Surface Solar Radiation over Time",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Radiation (W/m²)"))
+```
+
+Solar radiation follows a similar seasonal and daily pattern to power generation, which is expected.
+
+## Correlation Analysis
+
+A correlation matrix will help us understand the relationships between the different variables.
+
+```{r}
+#| label: correlation-matrix
+# Select numeric variables for correlation
+numeric_vars <- data_q1 %>%
+  select_if(is.numeric)
+
+# Compute correlation matrix
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+
+# Plot heatmap
+plot_ly(x = rownames(cor_matrix), y = colnames(cor_matrix), z = cor_matrix, type = "heatmap") %>%
+  layout(title = "Correlation Matrix of Meteorological Features and Power Generation")
+```
+
+The heatmap shows a strong positive correlation between `power` and `surface_solar_radiation_downwards`, as well as `temperature_2m`. This confirms that solar radiation and temperature are key drivers of solar power generation.

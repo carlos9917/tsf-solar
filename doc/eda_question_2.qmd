@@ -1,0 +1,140 @@
+---
+title: "EDA for Question 2: Detecting True Demand Growth"
+format: html
+execute:
+  echo: true
+---
+
+## Introduction
+
+This document presents an Exploratory Data Analysis (EDA) for Question 2 of the case study. The objective is to estimate the true year-over-year demand growth in Germany by accounting for the effect of behind-the-meter (BTM) solar generation.
+
+## Setup
+
+Loading the necessary libraries for the analysis.
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(skimr)
+library(arrow)
+```
+
+## Data Loading and Preparation
+
+We load the datasets relevant to Question 2:
+- `germany_electricity_demand_observation_q2.csv`: Observed electricity demand.
+- `germany_solar_observation_q2.csv`: Grid-scale solar power generation.
+- `germany_atm_features_q2.csv`: Meteorological data.
+
+These are merged into a single dataframe.
+
+```{r}
+#| label: load-data
+demand_q2 <- read_csv("../data/germany_electricity_demand_observation_q2.csv")
+solar_q2 <- read_csv("../data/germany_solar_observation_q2.csv")
+atm_q2 <- read_csv("../data/germany_atm_features_q2.csv")
+
+data_q2 <- demand_q2 %>%
+  left_join(solar_q2, by = "DateTime") %>%
+  left_join(atm_q2, by = "DateTime")
+```
+
+## Initial Data Exploration
+
+Let's get a summary of the combined dataset.
+
+```{r}
+#| label: skim-data
+skimr::skim(data_q2)
+```
+
+## Time Series Visualization
+
+Visualizing the demand and solar generation data to identify trends and patterns.
+
+### Electricity Demand
+
+```{r}
+#| label: plot-demand
+plot_ly(data_q2, x = ~DateTime, y = ~demand, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Observed Electricity Demand over Time",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Demand (MWh)"))
+```
+
+The demand shows daily and weekly cycles, as well as seasonal variations. There appears to be a dip in demand during midday, which might be caused by BTM solar generation.
+
+### Grid-Scale Solar Power
+
+```{r}
+#| label: plot-power
+plot_ly(data_q2, x = ~DateTime, y = ~power, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Grid-Scale Solar Power Generation over Time",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "Power (MWh)"))
+```
+
+This plot shows the grid-scale solar generation, which does not account for rooftop solar installations.
+
+## Correlation Analysis
+
+A correlation matrix will help us understand the relationships between the different variables in the context of demand.
+
+```{r}
+#| label: correlation-matrix
+# Select numeric variables for correlation
+numeric_vars <- data_q2 %>%
+  select_if(is.numeric)
+
+# Compute correlation matrix
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+
+# Plot heatmap
+plot_ly(x = rownames(cor_matrix), y = colnames(cor_matrix), z = cor_matrix, type = "heatmap") %>%
+  layout(title = "Correlation Matrix of Demand, Solar, and Weather")
+```
+
+The correlation matrix can reveal how weather variables impact both demand and solar generation, providing clues to isolate the effect of BTM solar. For instance, `demand` is negatively correlated with `temperature_2m` in some seasons (heating) and positively in others (cooling), while being influenced by solar radiation indirectly.
+
+## Causal Correlation Analysis
+
+To further investigate the relationship between solar generation and demand, we can use a Granger causality test. This test helps determine if one time series is useful in forecasting another. Specifically, we want to see if past values of solar radiation (a proxy for BTM generation) can help predict the observed electricity demand.
+
+### Granger Causality Test
+
+First, we need to install and load the `lmtest` package.
+
+```{r}
+#| label: install-lmtest
+if (!require("lmtest")) {
+  install.packages("lmtest")
+}
+library(lmtest)
+```
+
+Now, let's perform the test. We'll test if `surface_solar_radiation_downwards` Granger-causes `demand`. We'll use a lag of 6 hours, which should be sufficient to capture the morning ramp-up of solar generation and its effect on midday demand.
+
+```{r}
+#| label: granger-test
+# Ensure data is sorted by time
+data_q2_sorted <- data_q2 %>% arrange(DateTime)
+
+# Handle missing values by filling with the previous value
+data_q2_filled <- data_q2_sorted %>%
+  fill(demand, .direction = "down") %>%
+  fill(surface_solar_radiation_downwards, .direction = "down")
+
+# Perform the Granger causality test
+granger_result <- grangertest(demand ~ surface_solar_radiation_downwards, order = 6, data = data_q2_filled)
+print(granger_result)
+```
+
+### Interpretation
+
+The null hypothesis of the Granger causality test is that the lagged values of the predictor variable (in this case, `surface_solar_radiation_downwards`) do not add any predictive power to the model for the dependent variable (`demand`).
+
+If the p-value from the test is statistically significant (typically < 0.05), we can reject the null hypothesis and conclude that there is evidence of Granger causality. This would suggest that solar radiation patterns have a measurable impact on the observed demand, which is consistent with the idea of BTM solar generation reducing the load on the grid. The results from this test will be a crucial piece of evidence in answering the guiding questions of the case study.
