@@ -1,0 +1,86 @@
+---
+title: "EDA for Question 1: Solar Power Generation Forecasting (Python)"
+format: html
+execute:
+  echo: true
+engine: jupyter
+---
+
+## Introduction
+
+This document performs an Exploratory Data Analysis (EDA) for Question 1 of the case study, which focuses on forecasting solar power generation in Germany. We will analyze the provided datasets to understand their structure, identify patterns, and find correlations that will be useful for building a predictive model.
+
+## Setup
+
+Loading the necessary libraries for data manipulation, visualization, and analysis.
+
+```{python}
+#| label: setup
+import pandas as pd
+import plotly.express as px
+from skimpy import skim
+```
+
+## Data Loading and Preparation
+
+We load the two datasets relevant to Question 1:
+- `germany_atm_features_q1.csv`: Meteorological data.
+- `germany_solar_observation_q1.csv`: Solar power generation data.
+
+These datasets are then merged into a single dataframe for easier analysis.
+
+```{python}
+#| label: load-data
+atm_q1 = pd.read_csv("../data/germany_atm_features_q1.csv", parse_dates=['DateTime'])
+solar_q1 = pd.read_csv("../data/germany_solar_observation_q1.csv", parse_dates=['DateTime'])
+
+data_q1 = pd.merge(solar_q1, atm_q1, on="DateTime")
+```
+
+## Initial Data Exploration
+
+Let's get a summary of the combined dataset.
+
+```{python}
+#| label: skim-data
+skim(data_q1)
+```
+
+## Time Series Visualization
+
+Visualizing the solar power generation and key meteorological features over time.
+
+### Solar Power Generation
+
+```{python}
+#| label: plot-power
+fig = px.line(data_q1, x='DateTime', y='power', title='Solar Power Generation over Time')
+fig.show()
+```
+
+The plot shows a clear seasonal pattern, with higher generation during summer months and lower generation in winter. There is also a daily pattern where power generation peaks during the day.
+
+### Surface Solar Radiation
+
+```{python}
+#| label: plot-radiation
+fig = px.line(data_q1, x='DateTime', y='surface_solar_radiation_downwards', title='Surface Solar Radiation over Time')
+fig.show()
+```
+
+Solar radiation follows a similar seasonal and daily pattern to power generation, which is expected.
+
+## Correlation Analysis
+
+A correlation matrix will help us understand the relationships between the different variables.
+
+```{python}
+#| label: correlation-matrix
+numeric_vars = data_q1.select_dtypes(include='number')
+cor_matrix = numeric_vars.corr()
+
+fig = px.imshow(cor_matrix, title='Correlation Matrix of Meteorological Features and Power Generation')
+fig.show()
+```
+
+The heatmap shows a strong positive correlation between `power` and `surface_solar_radiation_downwards`, as well as `temperature_2m`. This confirms that solar radiation and temperature are key drivers of solar power generation.
