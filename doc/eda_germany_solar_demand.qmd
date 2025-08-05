@@ -1,10 +1,14 @@
-
 ---
 title: "Exploratory Data Analysis: Germany Solar & Demand Case Study"
-author: "Carlos Peralta"
+subtitle: "Vitus Commodities test case"
 format: html
 jupyter: python3
+author: "Carlos Peralta"
+date: "5 August 2025"
+date-modified: last-modified
+lang: en
 ---
+
 
 # Introduction
 
@@ -22,11 +26,11 @@ We analyze grid-scale solar, demand, and meteorological data, and examine causal
 import pandas as pd
 
 # Load datasets
-solar_q1 = pd.read_csv('germany_solar_observation_q1.csv', parse_dates=['DateTime'])
-atm_q1 = pd.read_csv('germany_atm_features_q1.csv', parse_dates=['DateTime'])
-demand_q2 = pd.read_csv('germany_electricity_demand_observation_q2.csv', parse_dates=['DateTime'])
-atm_q2 = pd.read_csv('germany_atm_features_q2.csv', parse_dates=['DateTime'])
-solar_q2 = pd.read_csv('germany_solar_observation_q2.csv', parse_dates=['DateTime'])
+solar_q1 = pd.read_csv('../data/germany_solar_observation_q1.csv', parse_dates=['DateTime'])
+atm_q1 = pd.read_csv('../data/germany_atm_features_q1.csv', parse_dates=['DateTime'])
+demand_q2 = pd.read_csv('../data/germany_electricity_demand_observation_q2.csv', parse_dates=['DateTime'])
+atm_q2 = pd.read_csv('../data/germany_atm_features_q2.csv', parse_dates=['DateTime'])
+solar_q2 = pd.read_csv('../data/germany_solar_observation_q2.csv', parse_dates=['DateTime'])
 ```
 
 ---
