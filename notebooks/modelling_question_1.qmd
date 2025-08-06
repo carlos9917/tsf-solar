@@ -170,7 +170,6 @@ lr_model.fit(X_train_scaled, y_train)
 y_val_pred_lr = lr_model.predict(X_val_scaled)
 
 # Metrics
-#val_rmse_lr = mean_squared_error(y_val, y_val_pred_lr, squared=False)
 val_rmse_lr = np.sqrt(mean_squared_error(y_val, y_val_pred_lr))
 val_mae_lr = mean_absolute_error(y_val, y_val_pred_lr)
 val_r2_lr = r2_score(y_val, y_val_pred_lr)
@@ -220,7 +219,6 @@ xgb_model.fit(
 y_val_pred_xgb = xgb_model.predict(X_val_scaled)
 
 # Metrics
-#val_rmse_xgb = mean_squared_error(y_val, y_val_pred_xgb, squared=False)
 val_rmse_xgb = np.sqrt(mean_squared_error(y_val, y_val_pred_xgb))
 val_mae_xgb = mean_absolute_error(y_val, y_val_pred_xgb)
 val_r2_xgb = r2_score(y_val, y_val_pred_xgb)
@@ -288,7 +286,6 @@ trainer_ffn.fit(ffn_model, train_loader_ffn, val_loader_ffn)
 y_val_pred_ffn = get_model_predictions(ffn_model, val_loader_ffn)
 
 # Metrics
-#val_rmse_ffn = mean_squared_error(y_val, y_val_pred_ffn, squared=False)
 val_rmse_ffn = np.sqrt(mean_squared_error(y_val, y_val_pred_ffn))
 val_mae_ffn = mean_absolute_error(y_val, y_val_pred_ffn)
 val_r2_ffn = r2_score(y_val, y_val_pred_ffn)
@@ -553,4 +550,4 @@ This analysis successfully developed and compared four different machine learnin
 - Cyclical time features help capture daily and seasonal patterns
 - The models successfully learned complex relationships between meteorological variables and solar power generation
 
-The final forecast has been saved as `forecast_q1.csv` with hourly predictions for the entire month of June 2025, ready for submission.
+The final forecast has been saved as `forecast_q1.csv` with hourly predictions for the entire month of June 2025.
