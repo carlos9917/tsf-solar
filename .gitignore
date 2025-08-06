@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+!data/README.md
+outputs/*
+!outputs/README.md
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc

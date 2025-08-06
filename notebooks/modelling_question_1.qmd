@@ -1,0 +1,556 @@
+---
+title: "Integrated Modelling for Solar Power Forecasting (Q1)"
+author: "Carlos Peralta"
+format: html
+jupyter: python3
+execute:
+  echo: true
+  engine: jupyter
+date: "6 August 2025"
+date-modified: last-modified
+lang: en
+---
+
+## Introduction
+
+This notebook integrates EDA findings into the modeling pipeline for forecasting Germany's hourly solar power generation for June 2025. Based on the case study requirements, we need to:
+
+- **Train models** using solar power observations from 2022-01-01 to 2025-05-31
+- **Use meteorological features** available from 2022-01-01 to 2025-06-30
+- **Predict** hourly solar power for June 2025 (2025-06-01 to 2025-06-30)
+
+We will compare four different models:
+
+1. **Linear Regression** - Simple baseline model
+2. **XGBoost** - Gradient boosting for tabular data
+3. **Feedforward Neural Network** - Deep learning without sequence modeling
+4. **LSTM** - Recurrent neural network for sequence modeling
+
+## EDA Summary Integration
+
+From the EDA analysis, we identified:
+
+- **Strongest predictors:** `surface_solar_radiation_downwards` and `temperature_2m` show high correlation with solar power generation
+- **Seasonality:** Clear daily and annual cycles in both solar power and solar radiation
+- **Feature selection:** Focus on most correlated meteorological variables plus engineered time features
+
+```{python}
+#| label: setup
+import sys
+sys.path.append('../src')
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import xgboost as xgb
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+import warnings
+warnings.filterwarnings("ignore")
+
+# Import our custom models
+from models import FFNModel, LSTMModel, create_sequences, get_model_predictions
+
+# Set random seeds for reproducibility
+np.random.seed(42)
+torch.manual_seed(42)
+```
+
+## Data Preparation
+
+Based on the case study requirements, we prepare the data correctly for training and forecasting.
+
+```{python}
+#| label: load-data
+# Load solar power observations (2022-01-01 to 2025-05-31)
+solar_q1 = pd.read_csv("../data/germany_solar_observation_q1.csv", parse_dates=['DateTime'])
+print(f"Solar data shape: {solar_q1.shape}")
+print(f"Solar data range: {solar_q1['DateTime'].min()} to {solar_q1['DateTime'].max()}")
+
+# Load meteorological features (2022-01-01 to 2025-06-30)
+atm_q1 = pd.read_csv("../data/germany_atm_features_q1.csv", parse_dates=['DateTime'])
+print(f"Atmospheric data shape: {atm_q1.shape}")
+print(f"Atmospheric data range: {atm_q1['DateTime'].min()} to {atm_q1['DateTime'].max()}")
+
+# Merge for training/validation (only where both power and features exist)
+data_q1 = pd.merge(solar_q1, atm_q1, on="DateTime", how="inner")
+data_q1 = data_q1[data_q1['DateTime'] <= '2025-05-31']
+print(f"Training data shape: {data_q1.shape}")
+print(f"Training data range: {data_q1['DateTime'].min()} to {data_q1['DateTime'].max()}")
+
+# For June 2025 forecast: only meteorological features (no observed power)
+forecast_data = atm_q1[(atm_q1['DateTime'] >= '2025-06-01') & 
+                      (atm_q1['DateTime'] <= '2025-06-30 23:00:00')].copy()
+print(f"Forecast data shape: {forecast_data.shape}")
+print(f"Forecast data range: {forecast_data['DateTime'].min()} to {forecast_data['DateTime'].max()}")
+```
+
+```{python}
+#| label: feature-engineering
+# Feature engineering based on EDA insights
+def add_time_features(df):
+    """Add cyclical time features for better temporal modeling"""
+    df = df.copy()
+    df['hour'] = df['DateTime'].dt.hour
+    df['dayofyear'] = df['DateTime'].dt.dayofyear
+    df['month'] = df['DateTime'].dt.month
+    df['is_weekend'] = (df['DateTime'].dt.dayofweek >= 5).astype(int)
+
+    # Cyclical encoding for time features
+    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
+    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
+    df['dayofyear_sin'] = np.sin(2 * np.pi * df['dayofyear'] / 365)
+    df['dayofyear_cos'] = np.cos(2 * np.pi * df['dayofyear'] / 365)
+
+    return df
+
+# Apply feature engineering
+data_q1 = add_time_features(data_q1)
+forecast_data = add_time_features(forecast_data)
+
+# Select features based on EDA correlation analysis
+features = [
+    'surface_solar_radiation_downwards',
+    'temperature_2m',
+    'total_cloud_cover',
+    'relative_humidity_2m',
+    'wind_speed_10m',
+    'hour_sin', 'hour_cos',
+    'dayofyear_sin', 'dayofyear_cos',
+    'is_weekend'
+]
+
+target = 'power'
+print(f"Selected features: {features}")
+```
+
+```{python}
+#| label: data-split
+# Train/Validation split: Use last 2 weeks of May 2025 for validation
+train_data = data_q1[data_q1['DateTime'] < '2025-05-17'].copy()
+val_data = data_q1[(data_q1['DateTime'] >= '2025-05-17') & 
+                   (data_q1['DateTime'] <= '2025-05-31')].copy()
+
+print(f"Train set: {len(train_data)} samples ({train_data['DateTime'].min()} to {train_data['DateTime'].max()})")
+print(f"Validation set: {len(val_data)} samples ({val_data['DateTime'].min()} to {val_data['DateTime'].max()})")
+print(f"Forecast set: {len(forecast_data)} samples ({forecast_data['DateTime'].min()} to {forecast_data['DateTime'].max()})")
+
+# Prepare features and targets
+X_train = train_data[features].values
+X_val = val_data[features].values
+X_forecast = forecast_data[features].values
+
+y_train = train_data[target].values
+y_val = val_data[target].values
+
+# Scale features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled = scaler.transform(X_val)
+X_forecast_scaled = scaler.transform(X_forecast)
+
+print(f"Feature shapes - Train: {X_train_scaled.shape}, Val: {X_val_scaled.shape}, Forecast: {X_forecast_scaled.shape}")
+```
+
+## Model 1: Baseline Linear Regression
+
+```{python}
+#| label: linear-regression
+print("=== Linear Regression Model ===")
+
+lr_model = LinearRegression()
+lr_model.fit(X_train_scaled, y_train)
+
+# Validation predictions
+y_val_pred_lr = lr_model.predict(X_val_scaled)
+
+# Metrics
+#val_rmse_lr = mean_squared_error(y_val, y_val_pred_lr, squared=False)
+val_rmse_lr = np.sqrt(mean_squared_error(y_val, y_val_pred_lr))
+val_mae_lr = mean_absolute_error(y_val, y_val_pred_lr)
+val_r2_lr = r2_score(y_val, y_val_pred_lr)
+
+print(f"Validation RMSE: {val_rmse_lr:.2f}")
+print(f"Validation MAE: {val_mae_lr:.2f}")
+print(f"Validation R²: {val_r2_lr:.4f}")
+
+# Feature importance
+feature_importance_lr = pd.DataFrame({
+    'feature': features,
+    'coefficient': lr_model.coef_
+}).sort_values('coefficient', key=abs, ascending=False)
+
+print("\nTop 5 most important features:")
+print(feature_importance_lr.head())
+
+# Generate forecast for June 2025
+forecast_lr = lr_model.predict(X_forecast_scaled)
+```
+
+## Model 2: XGBoost
+
+```{python}
+#| label: xgboost-model
+print("=== XGBoost Model ===")
+
+# XGBoost with hyperparameter tuning
+xgb_model = xgb.XGBRegressor(
+    n_estimators=200,
+    max_depth=6,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42
+)
+
+# Fit with early stopping
+xgb_model.fit(
+    X_train_scaled, y_train,
+    eval_set=[(X_val_scaled, y_val)],
+    #early_stopping_rounds=20,
+    verbose=False
+)
+
+# Validation predictions
+y_val_pred_xgb = xgb_model.predict(X_val_scaled)
+
+# Metrics
+#val_rmse_xgb = mean_squared_error(y_val, y_val_pred_xgb, squared=False)
+val_rmse_xgb = np.sqrt(mean_squared_error(y_val, y_val_pred_xgb))
+val_mae_xgb = mean_absolute_error(y_val, y_val_pred_xgb)
+val_r2_xgb = r2_score(y_val, y_val_pred_xgb)
+
+print(f"Validation RMSE: {val_rmse_xgb:.2f}")
+print(f"Validation MAE: {val_mae_xgb:.2f}")
+print(f"Validation R²: {val_r2_xgb:.4f}")
+
+# Feature importance
+feature_importance_xgb = pd.DataFrame({
+    'feature': features,
+    'importance': xgb_model.feature_importances_
+}).sort_values('importance', ascending=False)
+
+print("\nTop 5 most important features:")
+print(feature_importance_xgb.head())
+
+# Generate forecast for June 2025
+forecast_xgb = xgb_model.predict(X_forecast_scaled)
+```
+
+## Model 3: Feedforward Neural Network
+
+```{python}
+#| label: ffn-model
+print("=== Feedforward Neural Network ===")
+
+# Prepare data for PyTorch
+train_ds_ffn = TensorDataset(
+    torch.tensor(X_train_scaled, dtype=torch.float32),
+    torch.tensor(y_train, dtype=torch.float32)
+)
+val_ds_ffn = TensorDataset(
+    torch.tensor(X_val_scaled, dtype=torch.float32),
+    torch.tensor(y_val, dtype=torch.float32)
+)
+forecast_ds_ffn = TensorDataset(
+    torch.tensor(X_forecast_scaled, dtype=torch.float32),
+    torch.zeros(len(X_forecast_scaled), dtype=torch.float32)  # Dummy targets for forecast
+)
+
+train_loader_ffn = DataLoader(train_ds_ffn, batch_size=64, shuffle=True)
+val_loader_ffn = DataLoader(val_ds_ffn, batch_size=64)
+forecast_loader_ffn = DataLoader(forecast_ds_ffn, batch_size=64)
+
+# Initialize model
+ffn_model = FFNModel(input_dim=len(features), hidden_dim=128, lr=1e-3)
+
+# Callbacks
+early_stop_callback = EarlyStopping(monitor="val_loss", patience=10, mode="min")
+checkpoint_callback = ModelCheckpoint(monitor="val_loss", mode="min")
+
+# Trainer
+trainer_ffn = pl.Trainer(
+    max_epochs=50,
+    callbacks=[early_stop_callback, checkpoint_callback],
+    enable_progress_bar=True,
+    logger=False
+)
+
+# Train
+trainer_ffn.fit(ffn_model, train_loader_ffn, val_loader_ffn)
+
+# Get validation predictions
+y_val_pred_ffn = get_model_predictions(ffn_model, val_loader_ffn)
+
+# Metrics
+#val_rmse_ffn = mean_squared_error(y_val, y_val_pred_ffn, squared=False)
+val_rmse_ffn = np.sqrt(mean_squared_error(y_val, y_val_pred_ffn))
+val_mae_ffn = mean_absolute_error(y_val, y_val_pred_ffn)
+val_r2_ffn = r2_score(y_val, y_val_pred_ffn)
+
+print(f"Validation RMSE: {val_rmse_ffn:.2f}")
+print(f"Validation MAE: {val_mae_ffn:.2f}")
+print(f"Validation R²: {val_r2_ffn:.4f}")
+
+# Generate forecast for June 2025
+forecast_ffn = get_model_predictions(ffn_model, forecast_loader_ffn)
+```
+
+## Model 4: LSTM
+
+```{python}
+#| label: lstm-model
+print("=== LSTM Model ===")
+
+# Create sequences for LSTM (24-hour lookback)
+seq_length = 24
+X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train, seq_length)
+X_val_seq, y_val_seq = create_sequences(X_val_scaled, y_val, seq_length)
+
+print(f"LSTM training sequences: {X_train_seq.shape}")
+print(f"LSTM validation sequences: {X_val_seq.shape}")
+
+# For forecasting with LSTM, we need to create sequences for the forecast period
+# We'll use the last seq_length samples from validation to start the forecast
+X_last_seq = X_val_scaled[-seq_length:]
+X_forecast_seq = []
+
+# Create sequences for forecasting (rolling window approach)
+for i in range(len(X_forecast_scaled)):
+    if i == 0:
+        # First forecast uses last seq_length from validation
+        seq = X_last_seq
+    else:
+        # Subsequent forecasts use a rolling window
+        start_idx = max(0, i - seq_length)
+        if i < seq_length:
+            # Combine validation tail with forecast beginning
+            val_part = X_val_scaled[-(seq_length-i):]
+            forecast_part = X_forecast_scaled[:i]
+            seq = np.vstack([val_part, forecast_part])
+        else:
+            seq = X_forecast_scaled[start_idx:i]
+    X_forecast_seq.append(seq)
+
+X_forecast_seq = np.array(X_forecast_seq)
+print(f"LSTM forecast sequences: {X_forecast_seq.shape}")
+
+# Prepare data for PyTorch
+train_ds_lstm = TensorDataset(
+    torch.tensor(X_train_seq, dtype=torch.float32),
+    torch.tensor(y_train_seq, dtype=torch.float32)
+)
+val_ds_lstm = TensorDataset(
+    torch.tensor(X_val_seq, dtype=torch.float32),
+    torch.tensor(y_val_seq, dtype=torch.float32)
+)
+forecast_ds_lstm = TensorDataset(
+    torch.tensor(X_forecast_seq, dtype=torch.float32),
+    torch.zeros(len(X_forecast_seq), dtype=torch.float32)  # Dummy targets
+)
+
+train_loader_lstm = DataLoader(train_ds_lstm, batch_size=64, shuffle=True)
+val_loader_lstm = DataLoader(val_ds_lstm, batch_size=64)
+forecast_loader_lstm = DataLoader(forecast_ds_lstm, batch_size=64)
+
+# Initialize model
+lstm_model = LSTMModel(input_dim=len(features), hidden_dim=64, num_layers=2, lr=1e-3)
+
+# Callbacks
+early_stop_callback = EarlyStopping(monitor="val_loss", patience=10, mode="min")
+checkpoint_callback = ModelCheckpoint(monitor="val_loss", mode="min")
+
+# Trainer
+trainer_lstm = pl.Trainer(
+    max_epochs=50,
+    callbacks=[early_stop_callback, checkpoint_callback],
+    enable_progress_bar=True,
+    logger=False
+)
+
+# Train
+trainer_lstm.fit(lstm_model, train_loader_lstm, val_loader_lstm)
+
+# Get validation predictions
+y_val_pred_lstm = get_model_predictions(lstm_model, val_loader_lstm)
+
+# Metrics (note: LSTM validation has fewer samples due to sequence creation)
+val_rmse_lstm = np.sqrt(mean_squared_error(y_val_seq, y_val_pred_lstm))
+val_mae_lstm = mean_absolute_error(y_val_seq, y_val_pred_lstm)
+val_r2_lstm = r2_score(y_val_seq, y_val_pred_lstm)
+
+print(f"Validation RMSE: {val_rmse_lstm:.2f}")
+print(f"Validation MAE: {val_mae_lstm:.2f}")
+print(f"Validation R²: {val_r2_lstm:.4f}")
+
+# Generate forecast for June 2025
+forecast_lstm = get_model_predictions(lstm_model, forecast_loader_lstm)
+```
+
+## Model Comparison and Evaluation
+
+```{python}
+#| label: model-comparison
+print("=== Model Comparison ===")
+
+# Create comparison dataframe
+results = pd.DataFrame({
+    'Model': ['Linear Regression', 'XGBoost', 'FFN', 'LSTM'],
+    'Validation RMSE': [val_rmse_lr, val_rmse_xgb, val_rmse_ffn, val_rmse_lstm],
+    'Validation MAE': [val_mae_lr, val_mae_xgb, val_mae_ffn, val_mae_lstm],
+    'Validation R²': [val_r2_lr, val_r2_xgb, val_r2_ffn, val_r2_lstm]
+})
+
+print(results.round(4))
+
+# Find best model based on RMSE
+best_model_idx = results['Validation RMSE'].idxmin()
+best_model_name = results.loc[best_model_idx, 'Model']
+print(f"\nBest model based on validation RMSE: {best_model_name}")
+
+# Select best forecast
+forecasts = {
+    'Linear Regression': forecast_lr,
+    'XGBoost': forecast_xgb,
+    'FFN': forecast_ffn,
+    'LSTM': forecast_lstm
+}
+
+best_forecast = forecasts[best_model_name]
+```
+
+```{python}
+#| label: visualization
+# Plot validation predictions vs actual values
+fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+fig.suptitle('Model Predictions vs Actual Values (Validation Set)', fontsize=16)
+
+models_data = [
+    ('Linear Regression', y_val_pred_lr, y_val),
+    ('XGBoost', y_val_pred_xgb, y_val),
+    ('FFN', y_val_pred_ffn, y_val),
+    ('LSTM', y_val_pred_lstm, y_val_seq)  # Note: LSTM has different validation set
+]
+
+for idx, (name, pred, actual) in enumerate(models_data):
+    ax = axes[idx // 2, idx % 2]
+    ax.scatter(actual, pred, alpha=0.5, s=1)
+    ax.plot([actual.min(), actual.max()], [actual.min(), actual.max()], 'r--', lw=2)
+    ax.set_xlabel('Actual Power (MWh)')
+    ax.set_ylabel('Predicted Power (MWh)')
+    ax.set_title(f'{name}')
+
+    # Calculate R² for the plot
+    r2 = r2_score(actual, pred)
+    ax.text(0.05, 0.95, f'R² = {r2:.3f}', transform=ax.transAxes, 
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+plt.tight_layout()
+plt.show()
+```
+
+## Final Forecast for June 2025
+
+```{python}
+#| label: final-forecast
+print("=== Final Forecast Generation ===")
+
+# Create forecast dataframe with the best model
+forecast_df = pd.DataFrame({
+    'DateTime': forecast_data['DateTime'].values,
+    'power': best_forecast
+})
+
+# Ensure no negative predictions
+forecast_df['power'] = np.maximum(forecast_df['power'], 0)
+
+# Save forecast
+forecast_df.to_csv('forecast_q1.csv', index=False)
+print(f"Forecast saved to forecast_q1.csv")
+print(f"Best model used: {best_model_name}")
+print(f"Forecast shape: {forecast_df.shape}")
+print(f"Date range: {forecast_df['DateTime'].min()} to {forecast_df['DateTime'].max()}")
+
+# Display first and last few predictions
+print("\nFirst 10 predictions:")
+print(forecast_df.head(10))
+print("\nLast 10 predictions:")
+print(forecast_df.tail(10))
+
+# Summary statistics
+print("\nForecast Summary Statistics:")
+print(forecast_df['power'].describe())
+```
+
+```{python}
+#| label: forecast-visualization
+# Plot the forecast time series
+plt.figure(figsize=(15, 8))
+
+# Plot forecast
+plt.subplot(2, 1, 1)
+plt.plot(forecast_df['DateTime'], forecast_df['power'], 
+         label=f'{best_model_name} Forecast', linewidth=1, color='blue')
+plt.xlabel('Date')
+plt.ylabel('Solar Power Generation (MWh)')
+plt.title('Solar Power Generation Forecast for June 2025')
+plt.legend()
+plt.xticks(rotation=45)
+plt.grid(True, alpha=0.3)
+
+# Plot daily patterns (average by hour)
+plt.subplot(2, 1, 2)
+forecast_df['hour'] = forecast_df['DateTime'].dt.hour
+hourly_avg = forecast_df.groupby('hour')['power'].mean()
+plt.plot(hourly_avg.index, hourly_avg.values, marker='o', linewidth=2)
+plt.xlabel('Hour of Day')
+plt.ylabel('Average Solar Power (MWh)')
+plt.title('Average Daily Solar Power Pattern (June 2025 Forecast)')
+plt.grid(True, alpha=0.3)
+plt.xticks(range(0, 24, 2))
+
+plt.tight_layout()
+plt.show()
+
+# Compare all model forecasts
+plt.figure(figsize=(15, 6))
+colors = ['blue', 'red', 'green', 'orange']
+for i, (model_name, forecast) in enumerate(forecasts.items()):
+    plt.plot(forecast_data['DateTime'], forecast, 
+             label=model_name, alpha=0.7, linewidth=1, color=colors[i])
+
+plt.xlabel('Date')
+plt.ylabel('Solar Power Generation (MWh)')
+plt.title('Comparison of All Model Forecasts for June 2025')
+plt.legend()
+plt.xticks(rotation=45)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## Conclusion
+
+This analysis successfully developed and compared four different machine learning models for solar power forecasting:
+
+1. **Linear Regression**: Simple baseline with good interpretability
+2. **XGBoost**: Strong performance on tabular data with automatic feature selection
+3. **Feedforward Neural Network**: Deep learning approach for capturing non-linear patterns
+4. **LSTM**: Sequence modeling to capture temporal dependencies
+
+### Key Results:
+- **Best performing model**: {best_model_name} (based on validation RMSE)
+- **Validation performance**: {results.loc[best_model_idx, 'Validation RMSE']:.2f} RMSE
+- **Forecast period**: June 2025 (720 hourly predictions)
+
+### Key Insights:
+- Surface solar radiation and temperature are the most important predictors
+- Cyclical time features help capture daily and seasonal patterns
+- The models successfully learned complex relationships between meteorological variables and solar power generation
+
+The final forecast has been saved as `forecast_q1.csv` with hourly predictions for the entire month of June 2025, ready for submission.
