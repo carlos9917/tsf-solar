@@ -1,9 +1,14 @@
 ---
 title: "EDA for Question 1: Solar Power Generation Forecasting (Python)"
+author: "Carlos Peralta"
 format: html
+jupyter: python3
 execute:
   echo: true
 engine: jupyter
+date: "5 August 2025"
+date-modified: last-modified
+lang: en
 ---
 
 ## Introduction
@@ -19,6 +24,9 @@ Loading the necessary libraries for data manipulation, visualization, and analys
 import pandas as pd
 import plotly.express as px
 from skimpy import skim
+import warnings
+warnings.filterwarnings("ignore")
+
 ```
 
 ## Data Loading and Preparation

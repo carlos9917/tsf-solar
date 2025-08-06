@@ -9,3 +9,7 @@ echo "Rendering notebook for Question 2 (Python)..."
 quarto render eda_question_2.py.qmd --to html
 
 echo "Done."
+
+# convert to pdf
+quarto render eda_question_1.py.qmd --to pdf
+quarto render eda_question_2.py.qmd --to pdf
