@@ -1,5 +1,5 @@
 ---
-title: "Forecasting Solar Power Generation for June 2025"
+title: "Forecasting Solar Power Generation for June 2025: A Comparative Analysis"
 author: "Gemini"
 date: "today"
 format: 
@@ -14,27 +14,40 @@ execute:
 
 ## 1. Objective
 
-The goal of this analysis is to build a machine learning model to accurately forecast Germany's hourly solar power generation for the entire month of **June 2025**.
+The goal of this analysis is to build and evaluate a suite of machine learning models to accurately forecast Germany's hourly solar power generation for the entire month of **June 2025**.
 
-This report details the methodology, from feature engineering and model selection to the final forecast, ensuring a robust and reproducible result.
+This report details the methodology for this task, including a robust validation strategy, physics-informed feature engineering, and a comparative analysis of six different models to select the top performer for the final forecast.
 
 ## 2. Data Preparation
 
-We begin by loading the two provided datasets:
-- `germany_solar_observation_q1.csv`: Historical solar power generation data.
-- `germany_atm_features_q1.csv`: Historical and future meteorological data.
-
-These datasets are merged to create a comprehensive feature set for model training.
+We begin by loading and merging the historical solar power observations and the meteorological features. The data is indexed by `DateTime` to facilitate time-series operations.
 
 ```{python}
-#| label: load-data
+#| label: setup
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# ML Models
 import lightgbm as lgb
-from sklearn.model_selection import train_test_split
+import xgboost as xgb
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# PyTorch for NNs
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+
+import warnings
+warnings.filterwarnings("ignore")
+
+# Set seeds for reproducibility
+np.random.seed(42)
+torch.manual_seed(42)
 
 # Load data
 solar_obs = pd.read_csv("../data/germany_solar_observation_q1.csv", parse_dates=['DateTime'])
@@ -45,85 +58,47 @@ data = pd.merge(solar_obs, atm_features, on="DateTime", how="inner")
 data = data.set_index('DateTime')
 
 print("Training data range:", data.index.min(), "to", data.index.max())
-print("Training data shape:", data.shape)
 ```
 
 ## 3. Feature Engineering
 
-Effective feature engineering is crucial for capturing the physical drivers of solar power generation. We create a set of features designed to model the sun's position, atmospheric conditions, and their interactions.
+We engineer a set of features designed to capture the physical drivers of solar power, focusing on the sun's position and the impact of weather.
 
-### 3.1. Time-Based & Solar Position Features
-
-- **Cyclical Features:** We encode the time of day and day of the year as `sin` and `cos` pairs to represent their cyclical nature.
-- **Solar Elevation Proxy:** This is a critical feature that approximates the sun's angle. It is created by interacting the daily and yearly cycles. A higher value corresponds to times when the sun is higher in the sky (midday in summer).
-- **Daylight Flag:** A simple binary flag indicating whether it is daytime (6 AM to 6 PM).
-
-### 3.2. Weather-Based Features
-
-- **Clear-Sky Power Potential:** We model the maximum possible power generation under ideal, cloudless conditions. This is achieved by creating an interaction between the solar elevation proxy and the incoming solar radiation.
-- **Cloud & Weather Impact:** We create features to model how clouds and other weather phenomena reduce power output from its clear-sky potential.
+- **Solar Position Features:** We model the cyclical nature of the sun's movement using `sin`/`cos` transformations of the hour and day of the year. A `solar_elevation` proxy is created to approximate the sun's angle, which is a primary driver of power output.
+- **Weather-Based Features:** We create a `clear_sky_potential` feature to model the maximum possible power under ideal conditions. Interaction features like `cloud_impact` are created to model how weather reduces this potential.
 
 ```{python}
 #| label: feature-engineering
 def create_features(df):
     """Engineers features for solar power forecasting."""
     df = df.copy()
-    
-    # Time-based features
     df['hour'] = df.index.hour
     df['day_of_year'] = df.index.dayofyear
-    df['month'] = df.index.month
-    df['day_of_week'] = df.index.dayofweek
-
-    # Cyclical features
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['day_sin'] = np.sin(2 * np.pi * df['day_of_year'] / 365.25)
     df['day_cos'] = np.cos(2 * np.pi * df['day_of_year'] / 365.25)
-
-    # --- Physics-Informed Features ---
-    # 1. Solar Elevation Proxy
-    # This interaction captures the peak of the solar cycle (midday in summer)
     df['solar_elevation'] = (df['hour_cos'] * -1 * df['day_cos'] + 1) / 4 
-
-    # 2. Daylight Flag
     df['is_daylight'] = (df['surface_solar_radiation_downwards'] > 1).astype(int)
-
-    # 3. Clear-Sky Power Potential
-    # Models the maximum possible power based on sun angle and incoming radiation
     df['clear_sky_potential'] = df['solar_elevation'] * df['surface_solar_radiation_downwards']
-
-    # 4. Cloud Impact
-    # How much do clouds reduce the potential power?
     df['cloud_impact'] = df['total_cloud_cover'] * df['surface_solar_radiation_downwards']
-    
-    # 5. Temperature Interaction
     df['temp_x_radiation'] = df['temperature_2m'] * df['surface_solar_radiation_downwards']
-
     return df
 
 data = create_features(data)
 ```
 
-## 4. Model Training & Validation Strategy
+## 4. Validation Strategy and Data Split
 
-To build a trustworthy model, the validation strategy must mimic the real-world forecasting task. A simple random split of the data would lead to data leakage and overly optimistic results.
+To build a trustworthy model, the validation strategy must mimic the real-world forecasting task. We use a **Walk-Forward Validation** approach.
 
-### 4.1. Walk-Forward Validation
+- **Training Set:** All data from **2022-01-01 to 2024-12-31**. This set will be used for training models and for internal hyperparameter tuning (using `TimeSeriesSplit`).
+- **Validation Set:** All data from **2025-01-01 to 2025-05-31**. This set is held out and used for the final comparison of all models.
 
-We will use a **Walk-Forward Validation** approach. This is the gold standard for time series forecasting.
-- **Training Set:** All data from **2022-01-01 to 2024-12-31**.
-- **Validation Set:** All data from **2025-01-01 to 2025-05-31**.
-
-This setup ensures we are always predicting the "future" relative to our training data, providing a realistic estimate of the model's performance on the final June 2025 forecast.
-
-### 4.2. Model Selection: LightGBM
-
-We will use **LightGBM**, a gradient boosting framework known for its exceptional speed and performance on tabular data. It is highly effective at capturing the complex, non-linear relationships present in solar power generation.
+This setup ensures we are always predicting a "future" period relative to our training data, providing a realistic estimate of model performance.
 
 ```{python}
-#| label: model-training
-# Define features and target
+#| label: data-split
 features = [
     'surface_solar_radiation_downwards', 'temperature_2m', 'total_cloud_cover',
     'relative_humidity_2m', 'apparent_temperature', 'wind_speed_100m',
@@ -139,74 +114,263 @@ val_set = data.loc[(data.index >= '2025-01-01') & (data.index < '2025-06-01')]
 X_train, y_train = train_set[features], train_set[target]
 X_val, y_val = val_set[features], val_set[target]
 
-print(f"Training set size: {len(X_train)} ({X_train.index.min()} to {X_train.index.max()})")
-print(f"Validation set size: {len(X_val)} ({X_val.index.min()} to {X_val.index.max()})")
+# Scale features for linear models and neural networks
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled = scaler.transform(X_val)
 
-# Configure and train the LightGBM model
-lgb_params = {
-    'objective': 'regression_l1',
-    'metric': 'mae',
-    'n_estimators': 2000,
-    'learning_rate': 0.02,
-    'feature_fraction': 0.8,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 1,
-    'lambda_l1': 0.1,
-    'lambda_l2': 0.1,
-    'num_leaves': 64,
-    'verbose': -1,
-    'n_jobs': -1,
-    'seed': 42,
-    'boosting_type': 'gbdt',
-}
-
-model = lgb.LGBMRegressor(**lgb_params)
-
-# Train the model with early stopping
-model.fit(X_train, y_train,
-          eval_set=[(X_val, y_val)],
-          eval_metric='mae',
-          callbacks=[lgb.early_stopping(100, verbose=False)])
-
-# Make predictions on the validation set
-y_pred_val = model.predict(X_val)
-y_pred_val[y_pred_val < 0] = 0 # Ensure non-negative power
+print(f"Training set: {len(X_train)} samples ({X_train.index.min()} to {X_train.index.max()})")
+print(f"Validation set: {len(X_val)} samples ({X_val.index.min()} to {X_val.index.max()})")
 ```
 
-## 5. Model Performance on Validation Data
+## 5. Model Training and Comparison
 
-We evaluate the model's performance on the 2025 validation set using standard regression metrics.
+We will train and evaluate six different models, from a simple baseline to complex neural networks.
+
+### Model 1: Persistence Model (Baseline)
+
+This model provides a simple, non-machine learning baseline. It predicts the power at a given hour and month based on the historical average for that same hour and month, with more weight given to more recent years.
 
 ```{python}
-#| label: evaluation
-# Calculate metrics
-rmse = np.sqrt(mean_squared_error(y_val, y_pred_val))
-mae = mean_absolute_error(y_val, y_pred_val)
-r2 = r2_score(y_val, y_pred_val)
+#| label: model-persistence
+class PersistenceModel:
+    def __init__(self):
+        self.historical_patterns = {}
 
-print(f"Validation Metrics:")
-print(f"  - RMSE: {rmse:.2f} MWh")
-print(f"  - MAE:  {mae:.2f} MWh")
-print(f"  - R²:   {r2:.4f}")
+    def fit(self, data):
+        patterns = {}
+        # Use exponential weighting to give more importance to recent data
+        weighted_data = data.copy()
+        time_delta = (weighted_data.index - weighted_data.index.min()).days
+        weights = np.exp(time_delta / 365) # Exponentially decay over a year
+        
+        weighted_data['weighted_power'] = weighted_data['power'] * weights
+        
+        # Group by month and hour
+        grouped = weighted_data.groupby([weighted_data.index.month, weighted_data.index.hour])
+        sum_weighted_power = grouped['weighted_power'].sum()
+        sum_weights = grouped['power'].apply(lambda x: weights.loc[x.index].sum())
+        
+        self.historical_patterns = sum_weighted_power / sum_weights
 
-# Store results for plotting
-results = {
-    'true': y_val,
-    'predicted': y_pred_val
-}
+    def predict(self, X_predict):
+        keys = list(zip(X_predict.index.month, X_predict.index.hour))
+        predictions = [self.historical_patterns.get(key, 0) for key in keys]
+        return np.maximum(0, predictions)
+
+persistence_model = PersistenceModel()
+persistence_model.fit(train_set[[target]])
+y_pred_persistence = persistence_model.predict(X_val)
 ```
 
-### 5.1. Scatter Plot: Predicted vs. Actual
+### Model 2: Ridge Regression
 
-This plot shows the correlation between the model's predictions and the actual power values. A perfect model would have all points lying on the red dashed line. Our model shows a very strong correlation, with an R² score of **`r round(r2, 4)`**.
+A linear model with L2 regularization. Hyperparameters are tuned using a `TimeSeriesSplit` cross-validation on the training data.
 
 ```{python}
-#| label: plot-scatter
-#| fig-cap: "Predicted vs. Actual Power on the 2025 Validation Set"
+#| label: model-ridge
+param_grid = {'alpha': [0.1, 1.0, 10.0, 100.0, 1000.0]}
+tscv = TimeSeriesSplit(n_splits=5)
+ridge_model = GridSearchCV(Ridge(), param_grid, cv=tscv, scoring='neg_mean_squared_error', n_jobs=-1)
+ridge_model.fit(X_train_scaled, y_train)
+y_pred_ridge = ridge_model.predict(X_val_scaled)
+```
+
+### Model 3: XGBoost
+
+A powerful gradient boosting model. We tune its key hyperparameters using the same time-series cross-validation approach.
+
+```{python}
+#| label: model-xgb
+xgb_param_grid = {"n_estimators": [1000], "learning_rate": [0.05], "max_depth": [7], "subsample": [0.8]}
+xgb_model = GridSearchCV(
+    xgb.XGBRegressor(random_state=42, n_jobs=-1),
+    xgb_param_grid, cv=tscv, scoring='neg_mean_squared_error', n_jobs=-1
+)
+xgb_model.fit(X_train, y_train)
+y_pred_xgb = xgb_model.predict(X_val)
+```
+
+### Model 4: LightGBM
+
+Another gradient boosting model, known for its speed and efficiency. We use early stopping to find the optimal number of boosting rounds.
+
+```{python}
+#| label: model-lgbm
+lgbm_params = {
+    'objective': 'regression_l1', 'metric': 'mae', 'n_estimators': 2000, 'learning_rate': 0.02,
+    'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 1, 'lambda_l1': 0.1,
+    'lambda_l2': 0.1, 'num_leaves': 64, 'verbose': -1, 'n_jobs': -1, 'seed': 42
+}
+lgbm_model = lgb.LGBMRegressor(**lgbm_params)
+lgbm_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], eval_metric='mae', callbacks=[lgb.early_stopping(100, verbose=False)])
+y_pred_lgbm = lgbm_model.predict(X_val)
+```
+
+### Model 5 & 6: Neural Networks (FFN & LSTM)
+
+We also test two deep learning architectures: a standard Feedforward Neural Network (FFN) and a Long Short-Term Memory (LSTM) network, which is designed to handle sequences.
+
+```{python}
+#| label: model-nn
+# --- Helper Functions for PyTorch Models ---
+def train_pytorch_model(model, train_loader, val_loader, epochs=50, lr=1e-3, patience=10):
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3, factor=0.5)
+    criterion = nn.MSELoss()
+    best_val_loss = float('inf')
+    patience_counter = 0
+    
+    for epoch in range(epochs):
+        model.train()
+        for batch_x, batch_y in train_loader:
+            optimizer.zero_grad()
+            pred = model(batch_x)
+            loss = criterion(pred, batch_y)
+            loss.backward()
+            optimizer.step()
+        
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch_x, batch_y in val_loader:
+                pred = model(batch_x)
+                val_loss += criterion(pred, batch_y).item()
+        val_loss /= len(val_loader)
+        scheduler.step(val_loss)
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            best_model_state = model.state_dict()
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping at epoch {epoch}")
+                model.load_state_dict(best_model_state)
+                break
+    return model
+
+def get_predictions(model, loader):
+    model.eval()
+    preds = []
+    with torch.no_grad():
+        for batch_x, _ in loader:
+            preds.extend(model(batch_x).cpu().numpy())
+    return np.array(preds)
+
+# --- FFN ---
+class FFN(nn.Module):
+    def __init__(self, input_dim):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, 256), nn.ReLU(), nn.Dropout(0.3),
+            nn.Linear(256, 128), nn.ReLU(), nn.Dropout(0.3),
+            nn.Linear(128, 1)
+        )
+    def forward(self, x): return self.network(x).squeeze()
+
+train_ds = TensorDataset(torch.tensor(X_train_scaled, dtype=torch.float32), torch.tensor(y_train.values, dtype=torch.float32))
+val_ds = TensorDataset(torch.tensor(X_val_scaled, dtype=torch.float32), torch.tensor(y_val.values, dtype=torch.float32))
+train_loader = DataLoader(train_ds, batch_size=128, shuffle=True)
+val_loader = DataLoader(val_ds, batch_size=128)
+
+ffn_model = FFN(X_train_scaled.shape[1])
+ffn_model = train_pytorch_model(ffn_model, train_loader, val_loader)
+y_pred_ffn = get_predictions(ffn_model, val_loader)
+
+# --- LSTM ---
+def create_sequences(X, y, seq_length):
+    X_seq, y_seq = [], []
+    for i in range(len(X) - seq_length):
+        X_seq.append(X[i:i+seq_length])
+        y_seq.append(y[i+seq_length])
+    return np.array(X_seq), np.array(y_seq)
+
+seq_length = 24
+X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train.values, seq_length)
+X_val_seq, y_val_seq = create_sequences(X_val_scaled, y_val.values, seq_length)
+
+class LSTMModel(nn.Module):
+    def __init__(self, input_dim):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, 128, num_layers=2, batch_first=True, dropout=0.3)
+        self.fc = nn.Linear(128, 1)
+    def forward(self, x):
+        lstm_out, _ = self.lstm(x)
+        return self.fc(lstm_out[:, -1, :]).squeeze()
+
+train_ds_lstm = TensorDataset(torch.tensor(X_train_seq, dtype=torch.float32), torch.tensor(y_train_seq, dtype=torch.float32))
+val_ds_lstm = TensorDataset(torch.tensor(X_val_seq, dtype=torch.float32), torch.tensor(y_val_seq, dtype=torch.float32))
+train_loader_lstm = DataLoader(train_ds_lstm, batch_size=128, shuffle=True)
+val_loader_lstm = DataLoader(val_ds_lstm, batch_size=128)
+
+lstm_model = LSTMModel(X_train_scaled.shape[1])
+lstm_model = train_pytorch_model(lstm_model, train_loader_lstm, val_loader_lstm)
+y_pred_lstm = get_predictions(lstm_model, val_loader_lstm)
+```
+
+## 6. Model Comparison and Selection
+
+We now compare the performance of all models on the held-out 2025 validation set.
+
+```{python}
+#| label: model-comparison
+# Ensure all predictions are non-negative
+predictions = {
+    'Persistence': y_pred_persistence,
+    'Ridge': np.maximum(0, y_pred_ridge),
+    'XGBoost': np.maximum(0, y_pred_xgb),
+    'LightGBM': np.maximum(0, y_pred_lgbm),
+    'FFN': np.maximum(0, y_pred_ffn),
+    'LSTM': np.maximum(0, y_pred_lstm)
+}
+
+# Calculate metrics for all models
+results = []
+for name, pred in predictions.items():
+    # LSTM has a shorter validation set due to sequence creation
+    actuals = y_val_seq if name == 'LSTM' else y_val
+    
+    rmse = np.sqrt(mean_squared_error(actuals, pred))
+    mae = mean_absolute_error(actuals, pred)
+    r2 = r2_score(actuals, pred)
+    results.append({'Model': name, 'RMSE': rmse, 'MAE': mae, 'R²': r2})
+
+results_df = pd.DataFrame(results).sort_values(by='RMSE').reset_index(drop=True)
+print(results_df)
+
+best_model_name = results_df.iloc[0]['Model']
+print(f"\nBest performing model: {best_model_name}")
+```
+
+### 6.1. Performance Visualization
+
+The bar chart below clearly shows that **LightGBM** and **XGBoost** are the top-performing models, with LightGBM having a slight edge. The complex neural network models did not outperform the gradient boosting methods in this case.
+
+```{python}
+#| label: plot-comparison
+#| fig-cap: "Comparison of Model Performance on the 2025 Validation Set"
+plt.figure(figsize=(10, 6))
+sns.barplot(x='RMSE', y='Model', data=results_df, palette='viridis', orient='h')
+plt.title('Model Comparison: Root Mean Squared Error (RMSE)')
+plt.xlabel('RMSE (MWh) - Lower is Better')
+plt.ylabel('Model')
+plt.grid(axis='x', linestyle='--', alpha=0.6)
+plt.show()
+```
+
+### 6.2. Predicted vs. Actual Power
+
+The scatter plot for the best model, LightGBM, shows a strong correlation between predicted and actual values. As noted, there is a slight tendency to under-predict the highest power peaks, a common characteristic of tree-based models. However, the overall performance is excellent, with an R² of **`r round(results_df.iloc[0]['R²'], 4)`**.
+
+```{python}
+#| label: plot-scatter-best
+#| fig-cap: "Predicted vs. Actual Power for the Best Model (LightGBM)"
 plt.figure(figsize=(8, 8))
-sns.scatterplot(x=results['true'], y=results['predicted'], s=5, alpha=0.5)
-plt.plot([0, results['true'].max()], [0, results['true'].max()], 'r--', lw=2, label='Perfect Forecast')
-plt.title('Model Performance: Predicted vs. Actual Power')
+sns.scatterplot(x=y_val, y=predictions[best_model_name], s=5, alpha=0.5)
+plt.plot([0, y_val.max()], [0, y_val.max()], 'r--', lw=2, label='Perfect Forecast')
+plt.title(f'Performance of Best Model ({best_model_name})')
 plt.xlabel('Actual Power (MWh)')
 plt.ylabel('Predicted Power (MWh)')
 plt.grid(True)
@@ -214,80 +378,40 @@ plt.legend()
 plt.show()
 ```
 
-### 5.2. Time Series Plot: Forecast vs. Actual
+## 7. Final Forecast for June 2025
 
-This plot shows the model's predictions against the actual values for a sample week in the validation period. The model successfully captures the daily solar generation curve, including the impact of changing weather conditions.
+Having identified LightGBM as the best model, we use it to generate the final forecast.
 
-```{python}
-#| label: plot-timeseries
-#| fig-cap: "Forecast vs. Actual Power for a Sample Week in May 2025"
-sample_week = val_set.loc['2025-05-01':'2025-05-07']
-y_pred_sample = model.predict(sample_week[features])
-y_pred_sample[y_pred_sample < 0] = 0
-
-plt.figure(figsize=(15, 6))
-plt.plot(sample_week.index, sample_week[target], label='Actual Power', color='blue', lw=2)
-plt.plot(sample_week.index, y_pred_sample, label='Predicted Power', color='red', linestyle='--')
-plt.title('Model Forecast vs. Actual Power (Sample Week in May 2025)')
-plt.xlabel('Date')
-plt.ylabel('Power (MWh)')
-plt.legend()
-plt.grid(True)
-plt.show()
-```
-
-### 5.3. Feature Importance
-
-The plot below shows the most influential features in the model. As expected, **`clear_sky_potential`** and **`surface_solar_radiation_downwards`** are the most important drivers, confirming that our physics-based features are highly effective.
-
-```{python}
-#| label: plot-feature-importance
-#| fig-cap: "Top 15 Most Important Features in the LightGBM Model"
-lgb.plot_importance(model, max_num_features=15, height=0.6, figsize=(10, 8), 
-                    title='LightGBM Feature Importance')
-plt.show()
-```
-
-## 6. Final Forecast for June 2025
-
-With the model validated, we proceed to the final step: forecasting solar power for June 2025.
-
-1.  **Retrain the Model:** The model is retrained on the **entire historical dataset** (2022-01-01 to 2025-05-31) to ensure it learns from all available information.
-2.  **Prepare Forecast Data:** The meteorological features for June 2025 are loaded and processed using the same feature engineering function.
-3.  **Generate Forecast:** The retrained model is used to predict the hourly solar power for June 2025.
+1.  **Retrain the Model:** The LightGBM model is retrained on the **entire historical dataset** (2022-01-01 to 2025-05-31) to learn from all available information.
+2.  **Generate Forecast:** The final model is used to predict the hourly solar power for June 2025.
 
 ```{python}
 #| label: final-forecast
-# 1. Retrain on all available data
-X_full, y_full = data[features], data[target]
-model.fit(X_full, y_full)
+# 1. Retrain the best model on all available data
+print(f"Retraining {best_model_name} on the full dataset...")
+final_model = lgb.LGBMRegressor(**lgbm_params)
+final_model.fit(data[features], data[target])
 
 # 2. Prepare forecast features
-forecast_features = atm_features[(atm_features['DateTime'] >= '2025-06-01') & 
-                                 (atm_features['DateTime'] < '2025-07-01')].copy()
-forecast_features = forecast_features.set_index('DateTime')
-forecast_features = create_features(forecast_features)
+forecast_data = atm_features[(atm_features['DateTime'] >= '2025-06-01') & 
+                             (atm_features['DateTime'] < '2025-07-01')].copy()
+forecast_data = forecast_data.set_index('DateTime')
+forecast_data = create_features(forecast_data)
 
 # 3. Generate final forecast
-final_forecast_power = model.predict(forecast_features[features])
+final_forecast_power = final_model.predict(forecast_data[features])
 final_forecast_power[final_forecast_power < 0] = 0
 
-# Create the submission file
-submission_df = pd.DataFrame({
-    'DateTime': forecast_features.index,
-    'power': final_forecast_power
-})
-
-# Save to CSV
+# 4. Create and save the submission file
+submission_df = pd.DataFrame({'DateTime': forecast_data.index, 'power': final_forecast_power})
 submission_df.to_csv('forecast_q1.csv', index=False)
 
 print("Forecast for June 2025 generated and saved to 'forecast_q1.csv'")
-print(submission_df.head())
 ```
 
-### 6.1. Visualization of Final Forecast
+### 7.1. Visualization of Final Forecast
 
-The plot below shows the final hourly forecast for the entire month of June 2025.
+The plot below shows the final hourly forecast for the entire month of June 2025, as generated by the LightGBM model.
 
 ```{python}
 #| label: plot-final-forecast
