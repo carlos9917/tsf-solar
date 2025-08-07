@@ -1,214 +1,67 @@
 ---
-title: "Integrated Modelling for Solar Power Forecasting (Q1)"
+title: "Solar Power Forecasting Analysis (Q1)"
 author: "Carlos Peralta"
+date: "2025-08-06"
 format: html
 jupyter: python3
 execute:
   echo: true
   engine: jupyter
-date: "6 August 2025"
-date-modified: last-modified
 lang: en
 ---
 
 ## Introduction
 
-Based on the case study requirements, we need to:
+-Based on the case study requirements, we need to use solar power observations from 2022-01-01 to 2025-05-31
+to predict the month of June 2025.
 
-- **Train models** using solar power observations from 2022-01-01 to 2025-05-31
 
-- **Use meteorological features** available from 2022-01-01 to 2025-06-30
-
-- **Predict** hourly solar power for June 2025 (2025-06-01 to 2025-06-30)
-
-We will compare five different models:
+We compare five different models:
 
 1. **Persistence Model** - Simple baseline using historical patterns
-
-2. **Linear Regression** - Simple statistical baseline model
-
-3. **XGBoost** - Gradient boosting for tabular data
-
+2. **Ridge Regression** - Linear model with L2 regularization and hyperparameter tuning
+3. **XGBoost** - Gradient boosting with comprehensive hyperparameter search
 4. **Feedforward Neural Network** - Deep learning without sequence modeling
-
 5. **LSTM** - Recurrent neural network for sequence modeling
-
-## EDA Summary Integration
-
-From the EDA analysis, we identified:
-
-- **Strongest predictors:** `surface_solar_radiation_downwards` and `temperature_2m` show high correlation with solar power generation
-
-- **Seasonality:** Clear daily and annual cycles in both solar power and solar radiation
-
-- **Feature selection:** Focus on most correlated meteorological variables plus engineered time features
 
 ```{python}
 #| label: setup
-import sys
-sys.path.append('../src')
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import xgboost as xgb
 import torch
+import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import warnings
 warnings.filterwarnings("ignore")
-
-# Import our custom models (assuming they exist)
-try:
-    from models import FFNModel, LSTMModel, create_sequences, get_model_predictions
-except ImportError:
-    print("Custom models not found. Will define simplified versions.")
 
 # Set random seeds for reproducibility
 np.random.seed(42)
 torch.manual_seed(42)
+plt.style.use('default')
 ```
 
-## Persistence Model Implementation
+## Data Loading and Preparation
 
-The persistence model uses historical patterns to forecast future values. For solar power, we implement several persistence strategies:
+### EDA Summary Integration
 
-```{python}
-#| label: persistence-model
-class PersistenceModel:
-    """
-    Persistence model for solar power forecasting.
-    Uses historical patterns based on hour of day and day of year.
-    """
+From the EDA analysis, we identified:
 
-    def __init__(self, strategy='seasonal_hourly'):
-        """
-        Initialize persistence model.
+- **Strongest predictors:** `surface_solar_radiation_downwards` and `temperature_2m` show high correlation with solar power generation
+-
+- **Seasonality:** Clear daily and annual cycles in both solar power and solar radiation
+-
+- **Feature selection:** Focus on most correlated meteorological variables plus engineered time features, including interaction terms
 
-        Parameters:
-        - strategy: 'naive', 'seasonal_daily', 'seasonal_hourly', or 'weighted_average'
-        """
-        self.strategy = strategy
-        self.historical_patterns = {}
 
-    def fit(self, data):
-        """
-        Fit the persistence model by learning historical patterns.
+The train/validation split will use March 1st as boundary
 
-        Parameters:
-        - data: DataFrame with DateTime and power columns
-        """
-        data = data.copy()
-        data['hour'] = data['DateTime'].dt.hour
-        data['dayofyear'] = data['DateTime'].dt.dayofyear
-        data['month'] = data['DateTime'].dt.month
-        data['dayofweek'] = data['DateTime'].dt.dayofweek
-
-        if self.strategy == 'naive':
-            # Simply use the last observed value
-            self.last_value = data['power'].iloc[-1]
-
-        elif self.strategy == 'seasonal_daily':
-            # Average by hour of day
-            self.historical_patterns = data.groupby('hour')['power'].mean().to_dict()
-
-        elif self.strategy == 'seasonal_hourly':
-            # Average by hour of day and month (more granular)
-            self.historical_patterns = data.groupby(['month', 'hour'])['power'].mean().to_dict()
-
-        elif self.strategy == 'weighted_average':
-            # Weighted average giving more weight to recent observations
-            # Group by hour and calculate weighted average (more recent = higher weight)
-            patterns = {}
-            for hour in range(24):
-                hour_data = data[data['hour'] == hour]['power']
-                if len(hour_data) > 0:
-                    # Create weights that decay exponentially (more recent = higher weight)
-                    weights = np.exp(np.linspace(-2, 0, len(hour_data)))
-                    weighted_avg = np.average(hour_data, weights=weights)
-                    patterns[hour] = weighted_avg
-            self.historical_patterns = patterns
-
-        self.fitted_data = data
-
-    def predict(self, forecast_dates):
-        """
-        Generate predictions for given dates.
-
-        Parameters:
-        - forecast_dates: Series of datetime objects
-
-        Returns:
-        - Array of predictions
-        """
-        predictions = []
-
-        for date in forecast_dates:
-            hour = date.hour
-            month = date.month
-            dayofyear = date.dayofyear
-
-            if self.strategy == 'naive':
-                pred = self.last_value
-
-            elif self.strategy == 'seasonal_daily':
-                pred = self.historical_patterns.get(hour, 0)
-
-            elif self.strategy == 'seasonal_hourly':
-                pred = self.historical_patterns.get((month, hour), 
-                                                  self.historical_patterns.get(hour, 0))
-
-            elif self.strategy == 'weighted_average':
-                pred = self.historical_patterns.get(hour, 0)
-
-            predictions.append(max(0, pred))  # Ensure non-negative
-
-        return np.array(predictions)
-
-    def get_name(self):
-        return f"Persistence ({self.strategy})"
-
-# Test different persistence strategies
-def evaluate_persistence_strategies(train_data, val_data):
-    """Evaluate different persistence strategies and return the best one."""
-    strategies = ['naive', 'seasonal_daily', 'seasonal_hourly', 'weighted_average']
-    results = {}
-
-    for strategy in strategies:
-        model = PersistenceModel(strategy=strategy)
-        model.fit(train_data)
-
-        predictions = model.predict(val_data['DateTime'])
-
-        rmse = np.sqrt(mean_squared_error(val_data['power'], predictions))
-        mae = mean_absolute_error(val_data['power'], predictions)
-        r2 = r2_score(val_data['power'], predictions)
-
-        results[strategy] = {
-            'model': model,
-            'rmse': rmse,
-            'mae': mae,
-            'r2': r2,
-            'predictions': predictions
-        }
-
-        print(f"Persistence ({strategy}):")
-        print(f"  RMSE: {rmse:.2f}")
-        print(f"  MAE: {mae:.2f}")
-        print(f"  R²: {r2:.4f}")
-        print()
-
-    # Return the best strategy based on RMSE
-    best_strategy = min(results.keys(), key=lambda x: results[x]['rmse'])
-    print(f"Best persistence strategy: {best_strategy}")
-    return results[best_strategy]['model'], results
-```
-
-## Data Preparation
 
 ```{python}
 #| label: load-data
@@ -235,57 +88,71 @@ print(f"Forecast data shape: {forecast_data.shape}")
 print(f"Forecast data range: {forecast_data['DateTime'].min()} to {forecast_data['DateTime'].max()}")
 ```
 
+## Comprehensive Feature Engineering
+
 ```{python}
 #| label: feature-engineering
-# Feature engineering based on EDA insights
-def add_time_features(df):
-    """Add cyclical time features for better temporal modeling"""
+def add_comprehensive_features(df):
+    """Add comprehensive features including cyclical time features and interactions"""
     df = df.copy()
+    
+    # Basic time features
     df['hour'] = df['DateTime'].dt.hour
     df['dayofyear'] = df['DateTime'].dt.dayofyear
     df['month'] = df['DateTime'].dt.month
+    df['dayofweek'] = df['DateTime'].dt.dayofweek
     df['is_weekend'] = (df['DateTime'].dt.dayofweek >= 5).astype(int)
-
+    
     # Cyclical encoding for time features
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['dayofyear_sin'] = np.sin(2 * np.pi * df['dayofyear'] / 365)
     df['dayofyear_cos'] = np.cos(2 * np.pi * df['dayofyear'] / 365)
-
+    df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
+    df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+    
+    # Solar-specific features
+    df['is_daylight'] = ((df['hour'] >= 6) & (df['hour'] <= 18)).astype(int)
+    df['is_peak_solar'] = ((df['hour'] >= 10) & (df['hour'] <= 14)).astype(int)
+    
+    # Interaction features
+    df['temp_radiation_interaction'] = df['temperature_2m'] * df['surface_solar_radiation_downwards']
+    df['cloud_radiation_interaction'] = df['total_cloud_cover'] * df['surface_solar_radiation_downwards']
+    df['humidity_temp_interaction'] = df['relative_humidity_2m'] * df['temperature_2m']
+    
     return df
 
-# Apply feature engineering
-data_q1 = add_time_features(data_q1)
-forecast_data = add_time_features(forecast_data)
+# Apply comprehensive feature engineering
+data_q1 = add_comprehensive_features(data_q1)
+forecast_data = add_comprehensive_features(forecast_data)
 
-# Select features based on EDA correlation analysis
+# Define comprehensive feature set
 features = [
-    'surface_solar_radiation_downwards',
-    'temperature_2m', 
-    'total_cloud_cover',
-    'relative_humidity_2m',
-    'wind_speed_10m',
-    'hour_sin', 'hour_cos',
-    'dayofyear_sin', 'dayofyear_cos',
-    'is_weekend'
+    'surface_solar_radiation_downwards', 'temperature_2m', 'total_cloud_cover',
+    'total_precipitation', 'snowfall', 'snow_depth', 'wind_speed_10m', 'wind_speed_100m',
+    'apparent_temperature', 'relative_humidity_2m', 'hour_sin', 'hour_cos', 'dayofyear_sin',
+    'dayofyear_cos', 'month_sin', 'month_cos', 'is_weekend', 'is_daylight', 'is_peak_solar',
+    'temp_radiation_interaction', 'cloud_radiation_interaction', 'humidity_temp_interaction'
 ]
 
 target = 'power'
-print(f"Selected features: {features}")
+print(f"Selected features ({len(features)}): {features}")
 ```
+
+## Data Split
 
 ```{python}
 #| label: data-split
-# Train/Validation split: Use last 2 weeks of May 2025 for validation
-train_data = data_q1[data_q1['DateTime'] < '2025-05-17'].copy()
-val_data = data_q1[(data_q1['DateTime'] >= '2025-05-17') & 
-                   (data_q1['DateTime'] <= '2025-05-31')].copy()
+# The train/validation split using March 1st as boundary
+# This provides more validation data and better temporal representation
+train_data = data_q1[data_q1['DateTime'] < '2025-03-01'].copy()
+val_data = data_q1[data_q1['DateTime'] >= '2025-03-01'].copy()
 
 print(f"Train set: {len(train_data)} samples ({train_data['DateTime'].min()} to {train_data['DateTime'].max()})")
 print(f"Validation set: {len(val_data)} samples ({val_data['DateTime'].min()} to {val_data['DateTime'].max()})")
-print(f"Forecast set: {len(forecast_data)} samples ({forecast_data['DateTime'].min()} to {forecast_data['DateTime'].max()})")
+print(f"Forecast set: {len(forecast_data)} samples")
 
-# Prepare features and targets
+# Prepare feature matrices
 X_train = train_data[features].values
 X_val = val_data[features].values
 X_forecast = forecast_data[features].values
@@ -302,155 +169,201 @@ X_forecast_scaled = scaler.transform(X_forecast)
 print(f"Feature shapes - Train: {X_train_scaled.shape}, Val: {X_val_scaled.shape}, Forecast: {X_forecast_scaled.shape}")
 ```
 
-## Model 1: Persistence Baseline
+## Model 1: Persistence Model
 
 ```{python}
-#| label: persistence-baseline
-print("=== Persistence Model Baseline ===")
+#| label: persistence-model
+class PersistenceModel:
+    """
+    Persistence model with seasonal patterns and weighted averaging
+    """
+    def __init__(self, strategy='seasonal_hourly_weighted'):
+        self.strategy = strategy
+        self.historical_patterns = {}
 
-# Evaluate different persistence strategies
-best_persistence_model, persistence_results = evaluate_persistence_strategies(train_data, val_data)
+    def fit(self, data):
+        """Fit the persistence model using training data"""
+        data = data.copy()
+        data['hour'] = data['DateTime'].dt.hour
+        data['month'] = data['DateTime'].dt.month
+        
+        if self.strategy == 'seasonal_hourly_weighted':
+            # Create patterns with exponential weighting (more recent = higher weight)
+            patterns = {}
+            for month in range(1, 13):
+                for hour in range(24):
+                    subset = data[(data['month'] == month) & (data['hour'] == hour)]['power']
+                    if len(subset) > 0:
+                        # Exponential weighting favoring recent observations
+                        weights = np.exp(np.linspace(-1, 0, len(subset)))
+                        weighted_avg = np.average(subset, weights=weights)
+                        patterns[(month, hour)] = weighted_avg
+                    else:
+                        patterns[(month, hour)] = 0
+            self.historical_patterns = patterns
 
-# Get the best persistence model results
-val_rmse_persistence = persistence_results[best_persistence_model.strategy]['rmse']
-val_mae_persistence = persistence_results[best_persistence_model.strategy]['mae'] 
-val_r2_persistence = persistence_results[best_persistence_model.strategy]['r2']
-y_val_pred_persistence = persistence_results[best_persistence_model.strategy]['predictions']
+    def predict(self, forecast_dates):
+        """Generate predictions for forecast dates"""
+        predictions = []
+        for date in forecast_dates:
+            hour = date.hour
+            month = date.month
+            pred = self.historical_patterns.get((month, hour), 0)
+            predictions.append(max(0, pred))  # Ensure non-negative
+        return np.array(predictions)
 
-print(f"Best Persistence Model: {best_persistence_model.get_name()}")
+# Fit and evaluate persistence model
+print("=== Persistence Model ===")
+persistence_model = PersistenceModel()
+persistence_model.fit(train_data)
+y_val_pred_persistence = persistence_model.predict(val_data['DateTime'])
+
+val_rmse_persistence = np.sqrt(mean_squared_error(y_val, y_val_pred_persistence))
+val_mae_persistence = mean_absolute_error(y_val, y_val_pred_persistence)
+val_r2_persistence = r2_score(y_val, y_val_pred_persistence)
+
 print(f"Validation RMSE: {val_rmse_persistence:.2f}")
 print(f"Validation MAE: {val_mae_persistence:.2f}")
-print(f"Validation R²: {val_r2_persistence:.4f}")
+print(f"Validation R2: {val_r2_persistence:.4f}")
 
-# Generate forecast for June 2025
-forecast_persistence = best_persistence_model.predict(forecast_data['DateTime'])
+# Generate forecast
+forecast_persistence = persistence_model.predict(forecast_data['DateTime'])
 ```
 
-## Model 2: Linear Regression
+## Model 2: Ridge Regression with Hyperparameter Tuning
 
 ```{python}
-#| label: linear-regression
-print("=== Linear Regression Model ===")
+#| label: ridge-regression
+print("=== Ridge Regression with Hyperparameter Tuning ===")
 
-lr_model = LinearRegression()
-lr_model.fit(X_train_scaled, y_train)
+# Hyperparameter tuning with time series cross-validation
+param_grid = {'alpha': [0.1, 1.0, 10.0, 100.0, 1000.0]}
+tscv = TimeSeriesSplit(n_splits=5)
+
+ridge_model = GridSearchCV(
+    Ridge(random_state=42), 
+    param_grid, 
+    cv=tscv, 
+    scoring='neg_mean_squared_error', 
+    n_jobs=-1
+)
+
+ridge_model.fit(X_train_scaled, y_train)
 
 # Validation predictions
-y_val_pred_lr = lr_model.predict(X_val_scaled)
+y_val_pred_lr = ridge_model.predict(X_val_scaled)
 
-# Metrics
 val_rmse_lr = np.sqrt(mean_squared_error(y_val, y_val_pred_lr))
 val_mae_lr = mean_absolute_error(y_val, y_val_pred_lr)
 val_r2_lr = r2_score(y_val, y_val_pred_lr)
 
+print(f"Best alpha: {ridge_model.best_params_['alpha']}")
 print(f"Validation RMSE: {val_rmse_lr:.2f}")
 print(f"Validation MAE: {val_mae_lr:.2f}")
-print(f"Validation R²: {val_r2_lr:.4f}")
+print(f"Validation R2: {val_r2_lr:.4f}")
 
-# Feature importance
+# Feature importance analysis
 feature_importance_lr = pd.DataFrame({
     'feature': features,
-    'coefficient': lr_model.coef_
+    'coefficient': ridge_model.best_estimator_.coef_
 }).sort_values('coefficient', key=abs, ascending=False)
 
-print("\nTop 5 most important features:")
-print(feature_importance_lr.head())
+print(f"\nTop 10 most important features:")
+print(feature_importance_lr.head(10))
 
-# Generate forecast for June 2025
-forecast_lr = lr_model.predict(X_forecast_scaled)
+# Generate forecast
+forecast_lr = ridge_model.predict(X_forecast_scaled)
 ```
 
 ## Model 3: XGBoost
 
 ```{python}
 #| label: xgboost-model
-print("=== XGBoost Model ===")
+print("=== XGBoost with Grid Search ===")
 
-# XGBoost with hyperparameter tuning
-xgb_model = xgb.XGBRegressor(
-    n_estimators=200,
-    max_depth=6,
-    learning_rate=0.1,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    random_state=42
+# Comprehensive hyperparameter grid
+xgb_param_grid = {
+    'n_estimators': [200, 300],
+    'max_depth': [6, 8],
+    'learning_rate': [0.1, 0.15],
+    'subsample': [0.8],
+    'colsample_bytree': [0.8]
+}
+
+xgb_model = GridSearchCV(
+    xgb.XGBRegressor(random_state=42, n_jobs=-1),
+    xgb_param_grid,
+    cv=tscv,
+    scoring='neg_mean_squared_error',
+    n_jobs=-1
 )
 
-# Fit with early stopping
-xgb_model.fit(
-    X_train_scaled, y_train,
-    eval_set=[(X_val_scaled, y_val)],
-    verbose=False
-)
+xgb_model.fit(X_train_scaled, y_train)
 
 # Validation predictions
 y_val_pred_xgb = xgb_model.predict(X_val_scaled)
 
-# Metrics
 val_rmse_xgb = np.sqrt(mean_squared_error(y_val, y_val_pred_xgb))
 val_mae_xgb = mean_absolute_error(y_val, y_val_pred_xgb)
 val_r2_xgb = r2_score(y_val, y_val_pred_xgb)
 
+print(f"Best parameters: {xgb_model.best_params_}")
 print(f"Validation RMSE: {val_rmse_xgb:.2f}")
 print(f"Validation MAE: {val_mae_xgb:.2f}")
-print(f"Validation R²: {val_r2_xgb:.4f}")
+print(f"Validation R2: {val_r2_xgb:.4f}")
 
 # Feature importance
 feature_importance_xgb = pd.DataFrame({
     'feature': features,
-    'importance': xgb_model.feature_importances_
+    'importance': xgb_model.best_estimator_.feature_importances_
 }).sort_values('importance', ascending=False)
 
-print("\nTop 5 most important features:")
-print(feature_importance_xgb.head())
+print(f"\nTop 10 most important features:")
+print(feature_importance_xgb.head(10))
 
-# Generate forecast for June 2025
+# Generate forecast
 forecast_xgb = xgb_model.predict(X_forecast_scaled)
 ```
 
-## Simplified Neural Network Models
-
-Since the original models module might not be available, we'll implement simplified versions:
+## Model 4: Feedforward Neural Network
 
 ```{python}
-#| label: simple-neural-networks
-# Simplified neural network implementations
-import torch.nn as nn
-
-class SimpleFFN(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128):
+#| label: ffn
+class FFN(nn.Module):
+    """Feedforward neural network"""
+    def __init__(self, input_dim, hidden_dims=[256, 128, 64], dropout_rate=0.3):
         super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dim, hidden_dim//2),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dim//2, 1)
-        )
+        
+        layers = []
+        prev_dim = input_dim
+        
+        for hidden_dim in hidden_dims:
+            layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout_rate)
+            ])
+            prev_dim = hidden_dim
+        
+        # Output layer
+        layers.append(nn.Linear(prev_dim, 1))
+        
+        self.network = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.network(x).squeeze()
 
-class SimpleLSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=2):
-        super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2)
-        self.fc = nn.Linear(hidden_dim, 1)
-
-    def forward(self, x):
-        lstm_out, _ = self.lstm(x)
-        return self.fc(lstm_out[:, -1, :]).squeeze()
-
-def train_pytorch_model(model, train_loader, val_loader, epochs=50, lr=1e-3):
-    """Simple training function for PyTorch models"""
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+def train_pytorch_model(model, train_loader, val_loader, epochs=100, lr=1e-3, patience=15):
+    """Training with  early stopping and learning rate scheduling"""
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     criterion = nn.MSELoss()
 
     best_val_loss = float('inf')
-    patience = 10
     patience_counter = 0
+    train_losses = []
+    val_losses = []
 
     for epoch in range(epochs):
         # Training
@@ -461,8 +374,12 @@ def train_pytorch_model(model, train_loader, val_loader, epochs=50, lr=1e-3):
             pred = model(batch_x)
             loss = criterion(pred, batch_y)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             train_loss += loss.item()
+
+        train_loss /= len(train_loader)
+        train_losses.append(train_loss)
 
         # Validation
         model.eval()
@@ -474,24 +391,32 @@ def train_pytorch_model(model, train_loader, val_loader, epochs=50, lr=1e-3):
                 val_loss += loss.item()
 
         val_loss /= len(val_loader)
+        val_losses.append(val_loss)
+        
+        scheduler.step(val_loss)
 
         # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
+            # Save best model state
+            best_model_state = model.state_dict().copy()
         else:
             patience_counter += 1
             if patience_counter >= patience:
                 print(f"Early stopping at epoch {epoch}")
+                # Load best model state
+                model.load_state_dict(best_model_state)
                 break
 
-        if epoch % 10 == 0:
-            print(f"Epoch {epoch}: Val Loss = {val_loss:.4f}")
+        if epoch % 20 == 0:
+            current_lr = optimizer.param_groups[0]['lr']
+            print(f"Epoch {epoch}: Train Loss = {train_loss:.4f}, Val Loss = {val_loss:.4f}, LR = {current_lr:.6f}")
 
-    return model
+    return model, train_losses, val_losses
 
 def get_predictions(model, data_loader):
-    """Get predictions from a trained PyTorch model"""
+    """Get predictions from trained model"""
     model.eval()
     predictions = []
     with torch.no_grad():
@@ -499,15 +424,10 @@ def get_predictions(model, data_loader):
             pred = model(batch_x)
             predictions.extend(pred.cpu().numpy())
     return np.array(predictions)
-```
 
-## Model 4: Feedforward Neural Network
-
-```{python}
-#| label: ffn-model
 print("=== Feedforward Neural Network ===")
 
-# Prepare data for PyTorch
+# Prepare PyTorch datasets and loaders
 train_ds_ffn = TensorDataset(
     torch.tensor(X_train_scaled, dtype=torch.float32),
     torch.tensor(y_train, dtype=torch.float32)
@@ -518,16 +438,18 @@ val_ds_ffn = TensorDataset(
 )
 forecast_ds_ffn = TensorDataset(
     torch.tensor(X_forecast_scaled, dtype=torch.float32),
-    torch.zeros(len(X_forecast_scaled), dtype=torch.float32)  # Dummy targets
+    torch.zeros(len(X_forecast_scaled), dtype=torch.float32)
 )
 
-train_loader_ffn = DataLoader(train_ds_ffn, batch_size=64, shuffle=True)
-val_loader_ffn = DataLoader(val_ds_ffn, batch_size=64)
-forecast_loader_ffn = DataLoader(forecast_ds_ffn, batch_size=64)
+train_loader_ffn = DataLoader(train_ds_ffn, batch_size=128, shuffle=True)
+val_loader_ffn = DataLoader(val_ds_ffn, batch_size=128)
+forecast_loader_ffn = DataLoader(forecast_ds_ffn, batch_size=128)
 
 # Initialize and train model
-ffn_model = SimpleFFN(input_dim=len(features), hidden_dim=128)
-ffn_model = train_pytorch_model(ffn_model, train_loader_ffn, val_loader_ffn)
+ffn_model = FFN(input_dim=len(features), hidden_dims=[256, 128, 64])
+ffn_model, train_losses_ffn, val_losses_ffn = train_pytorch_model(
+    ffn_model, train_loader_ffn, val_loader_ffn, epochs=100, lr=1e-3
+)
 
 # Get validation predictions
 y_val_pred_ffn = get_predictions(ffn_model, val_loader_ffn)
@@ -539,56 +461,90 @@ val_r2_ffn = r2_score(y_val, y_val_pred_ffn)
 
 print(f"Validation RMSE: {val_rmse_ffn:.2f}")
 print(f"Validation MAE: {val_mae_ffn:.2f}")
-print(f"Validation R²: {val_r2_ffn:.4f}")
+print(f"Validation R2: {val_r2_ffn:.4f}")
 
-# Generate forecast for June 2025
+# Generate forecast
 forecast_ffn = get_predictions(ffn_model, forecast_loader_ffn)
 ```
 
 ## Model 5: LSTM
 
 ```{python}
-#| label: lstm-model
-print("=== LSTM Model ===")
+#| label: lstm
+class LSTM(nn.Module):
+    """Enhanced LSTM with better architecture and regularization"""
+    def __init__(self, input_dim, hidden_dim=128, num_layers=2, dropout_rate=0.3):
+        super().__init__()
+        
+        self.lstm = nn.LSTM(
+            input_dim, 
+            hidden_dim, 
+            num_layers, 
+            batch_first=True, 
+            dropout=dropout_rate,
+            bidirectional=False
+        )
+        
+        # Enhanced output layers
+        self.fc_layers = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.BatchNorm1d(hidden_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_dim // 2, 1)
+        )
 
-# Create sequences for LSTM (24-hour lookback)
-def create_sequences(X, y, seq_length):
-    """Create sequences for LSTM training"""
+    def forward(self, x):
+        lstm_out, _ = self.lstm(x)
+        # Use the last time step output
+        last_output = lstm_out[:, -1, :]
+        return self.fc_layers(last_output).squeeze()
+
+def create_sequences_corrected(X, y, seq_length):
+    """Create sequences for LSTM training with proper handling"""
     X_seq, y_seq = [], []
     for i in range(seq_length, len(X)):
         X_seq.append(X[i-seq_length:i])
         y_seq.append(y[i])
     return np.array(X_seq), np.array(y_seq)
 
+def create_forecast_sequences(X_val, X_forecast, seq_length):
+    """Create sequences for forecasting using validation data as initial context"""
+    X_forecast_seq = []
+    
+    # Use the last seq_length samples from validation as initial context
+    context = X_val[-seq_length:]
+    
+    for i in range(len(X_forecast)):
+        if i == 0:
+            # First prediction uses validation context
+            X_forecast_seq.append(context)
+        else:
+            # Subsequent predictions use rolling window
+            if i < seq_length:
+                # Mix validation context with forecast data
+                context_needed = seq_length - i
+                new_context = np.vstack([context[-context_needed:], X_forecast[:i]])
+            else:
+                # Use only forecast data
+                new_context = X_forecast[i-seq_length:i]
+            X_forecast_seq.append(new_context)
+    
+    return np.array(X_forecast_seq)
+
+print("=== LSTM Model ===")
+
+# Create sequences for LSTM (24-hour lookback window)
 seq_length = 24
-X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train, seq_length)
-X_val_seq, y_val_seq = create_sequences(X_val_scaled, y_val, seq_length)
+X_train_seq, y_train_seq = create_sequences_corrected(X_train_scaled, y_train, seq_length)
+X_val_seq, y_val_seq = create_sequences_corrected(X_val_scaled, y_val, seq_length)
+X_forecast_seq = create_forecast_sequences(X_val_scaled, X_forecast_scaled, seq_length)
 
 print(f"LSTM training sequences: {X_train_seq.shape}")
 print(f"LSTM validation sequences: {X_val_seq.shape}")
-
-# For forecasting with LSTM, create sequences for the forecast period
-X_last_seq = X_val_scaled[-seq_length:]
-X_forecast_seq = []
-
-# Create sequences for forecasting (rolling window approach)
-for i in range(len(X_forecast_scaled)):
-    if i == 0:
-        seq = X_last_seq
-    else:
-        start_idx = max(0, i - seq_length)
-        if i < seq_length:
-            val_part = X_val_scaled[-(seq_length-i):]
-            forecast_part = X_forecast_scaled[:i]
-            seq = np.vstack([val_part, forecast_part])
-        else:
-            seq = X_forecast_scaled[start_idx:i]
-    X_forecast_seq.append(seq)
-
-X_forecast_seq = np.array(X_forecast_seq)
 print(f"LSTM forecast sequences: {X_forecast_seq.shape}")
 
-# Prepare data for PyTorch
+# Prepare PyTorch datasets
 train_ds_lstm = TensorDataset(
     torch.tensor(X_train_seq, dtype=torch.float32),
     torch.tensor(y_train_seq, dtype=torch.float32)
@@ -607,8 +563,10 @@ val_loader_lstm = DataLoader(val_ds_lstm, batch_size=64)
 forecast_loader_lstm = DataLoader(forecast_ds_lstm, batch_size=64)
 
 # Initialize and train model
-lstm_model = SimpleLSTM(input_dim=len(features), hidden_dim=64, num_layers=2)
-lstm_model = train_pytorch_model(lstm_model, train_loader_lstm, val_loader_lstm)
+lstm_model = LSTM(input_dim=len(features), hidden_dim=128, num_layers=2)
+lstm_model, train_losses_lstm, val_losses_lstm = train_pytorch_model(
+    lstm_model, train_loader_lstm, val_loader_lstm, epochs=100, lr=1e-3
+)
 
 # Get validation predictions
 y_val_pred_lstm = get_predictions(lstm_model, val_loader_lstm)
@@ -620,50 +578,53 @@ val_r2_lstm = r2_score(y_val_seq, y_val_pred_lstm)
 
 print(f"Validation RMSE: {val_rmse_lstm:.2f}")
 print(f"Validation MAE: {val_mae_lstm:.2f}")
-print(f"Validation R²: {val_r2_lstm:.4f}")
+print(f"Validation R2: {val_r2_lstm:.4f}")
 
-# Generate forecast for June 2025
+# Generate forecast
 forecast_lstm = get_predictions(lstm_model, forecast_loader_lstm)
 ```
 
-## Model Comparison and Evaluation
+## Model Comparison and Results
 
 ```{python}
 #| label: model-comparison
-print("=== Model Comparison with Persistence Baseline ===")
+print("=== Model Comparison ===")
 
-# Create comparison dataframe
-results = pd.DataFrame({
-    'Model': ['Persistence', 'Linear Regression', 'XGBoost', 'FFN', 'LSTM'],
+# Create comprehensive results dataframe
+results_df = pd.DataFrame({
+    'Model': ['Persistence', 'Ridge Regression', 'XGBoost', 'Enhanced FFN', 'Enhanced LSTM'],
     'Validation RMSE': [val_rmse_persistence, val_rmse_lr, val_rmse_xgb, val_rmse_ffn, val_rmse_lstm],
     'Validation MAE': [val_mae_persistence, val_mae_lr, val_mae_xgb, val_mae_ffn, val_mae_lstm],
-    'Validation R²': [val_r2_persistence, val_r2_lr, val_r2_xgb, val_r2_ffn, val_r2_lstm]
+    'Validation R2': [val_r2_persistence, val_r2_lr, val_r2_xgb, val_r2_ffn, val_r2_lstm]
 })
 
-print(results.round(4))
+print("\nModel Performance Comparison:")
+print(results_df.round(4))
 
 # Calculate improvement over persistence baseline
-results['RMSE Improvement vs Persistence'] = (
-    (val_rmse_persistence - results['Validation RMSE']) / val_rmse_persistence * 100
-)
+results_df['RMSE Improvement (%)'] = (val_rmse_persistence - results_df['Validation RMSE']) / val_rmse_persistence * 100
+results_df['MAE Improvement (%)'] = (val_mae_persistence - results_df['Validation MAE']) / val_mae_persistence * 100
 
-print("\n=== Improvement over Persistence Baseline ===")
-improvement_df = results[['Model', 'RMSE Improvement vs Persistence']].copy()
-improvement_df = improvement_df[improvement_df['Model'] != 'Persistence']
+print("\nImprovement over Persistence Baseline:")
+improvement_df = results_df[['Model', 'RMSE Improvement (%)', 'MAE Improvement (%)']].copy()
 print(improvement_df.round(2))
 
-# Find best model based on RMSE
-best_model_idx = results['Validation RMSE'].idxmin()
-best_model_name = results.loc[best_model_idx, 'Model']
-print(f"\nBest model based on validation RMSE: {best_model_name}")
+# Identify best model
+best_model_idx = results_df['Validation RMSE'].idxmin()
+best_model_name = results_df.loc[best_model_idx, 'Model']
+best_rmse = results_df.loc[best_model_idx, 'Validation RMSE']
+
+print(f"\nBest Model: {best_model_name}")
+print(f"Best RMSE: {best_rmse:.2f}")
+print(f"Improvement over Persistence: {results_df.loc[best_model_idx, 'RMSE Improvement (%)']:.1f}%")
 
 # Select best forecast
 forecasts = {
     'Persistence': forecast_persistence,
-    'Linear Regression': forecast_lr,
+    'Ridge Regression': forecast_lr,
     'XGBoost': forecast_xgb,
-    'FFN': forecast_ffn,
-    'LSTM': forecast_lstm
+    'Enhanced FFN': forecast_ffn,
+    'Enhanced LSTM': forecast_lstm
 }
 
 best_forecast = forecasts[best_model_name]
@@ -673,115 +634,66 @@ best_forecast = forecasts[best_model_name]
 
 ```{python}
 #| label: visualization
+import matplotlib.dates as mdates
+
 # Plot validation predictions vs actual values
 fig, axes = plt.subplots(2, 3, figsize=(18, 12))
 fig.suptitle('Model Predictions vs Actual Values (Validation Set)', fontsize=16)
 
 models_data = [
     ('Persistence', y_val_pred_persistence, y_val),
-    ('Linear Regression', y_val_pred_lr, y_val),
+    ('Ridge Regression', y_val_pred_lr, y_val),
     ('XGBoost', y_val_pred_xgb, y_val),
-    ('FFN', y_val_pred_ffn, y_val),
-    ('LSTM', y_val_pred_lstm, y_val_seq)  # Note: LSTM has different validation set
+    ('Enhanced FFN', y_val_pred_ffn, y_val),
+    ('Enhanced LSTM', y_val_pred_lstm, y_val_seq)  # LSTM has fewer validation samples
 ]
 
 for idx, (name, pred, actual) in enumerate(models_data):
     row = idx // 3
     col = idx % 3
     ax = axes[row, col]
-
     ax.scatter(actual, pred, alpha=0.5, s=1)
     ax.plot([actual.min(), actual.max()], [actual.min(), actual.max()], 'r--', lw=2)
     ax.set_xlabel('Actual Power (MWh)')
     ax.set_ylabel('Predicted Power (MWh)')
     ax.set_title(f'{name}')
-
-    # Calculate R² for the plot
     r2 = r2_score(actual, pred)
     ax.text(0.05, 0.95, f'R² = {r2:.3f}', transform=ax.transAxes,
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
-# Remove empty subplot
+# Remove empty subplot (bottom right)
 axes[1, 2].remove()
-
-plt.tight_layout()
+plt.tight_layout(rect=[0, 0, 1, 0.96])
 plt.show()
 
-# Model performance comparison bar chart
+# Model performance comparison bar charts
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
 # RMSE comparison
-ax1.bar(results['Model'], results['Validation RMSE'], color=['red', 'blue', 'green', 'orange', 'purple'])
+colors = ['red', 'blue', 'green', 'orange', 'purple']
+ax1.bar(results_df['Model'], results_df['Validation RMSE'], color=colors)
 ax1.set_title('Validation RMSE Comparison')
 ax1.set_ylabel('RMSE (MWh)')
 ax1.tick_params(axis='x', rotation=45)
+ax1.grid(True, alpha=0.3)
 
-# R² comparison
-ax2.bar(results['Model'], results['Validation R²'], color=['red', 'blue', 'green', 'orange', 'purple'])
-ax2.set_title('Validation R² Comparison')
-ax2.set_ylabel('R² Score')
+# R2 comparison
+ax2.bar(results_df['Model'], results_df['Validation R2'], color=colors)
+ax2.set_title('Validation R2 Comparison')
+ax2.set_ylabel('R2 Score')
 ax2.tick_params(axis='x', rotation=45)
+ax2.grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()
-```
 
-## Final Forecast for June 2025
+# Forecast visualization
+plt.figure(figsize=(15, 12))
 
-```{python}
-#| label: final-forecast
-print("=== Final Forecast Generation ===")
-
-# Create forecast dataframe with the best model
-forecast_df = pd.DataFrame({
-    'DateTime': forecast_data['DateTime'].values,
-    'power': best_forecast
-})
-
-# Ensure no negative predictions
-forecast_df['power'] = np.maximum(forecast_df['power'], 0)
-
-# Save forecast
-forecast_df.to_csv('forecast_q1.csv', index=False)
-print(f"Forecast saved to forecast_q1.csv")
-print(f"Best model used: {best_model_name}")
-print(f"Forecast shape: {forecast_df.shape}")
-print(f"Date range: {forecast_df['DateTime'].min()} to {forecast_df['DateTime'].max()}")
-
-# Display first and last few predictions
-print("\nFirst 10 predictions:")
-print(forecast_df.head(10))
-print("\nLast 10 predictions:")
-print(forecast_df.tail(10))
-
-# Summary statistics
-print("\nForecast Summary Statistics:")
-print(forecast_df['power'].describe())
-
-# Compare with persistence baseline
-persistence_forecast_df = pd.DataFrame({
-    'DateTime': forecast_data['DateTime'].values,
-    'power': forecast_persistence
-})
-
-print("\nPersistence Baseline Summary Statistics:")
-print(persistence_forecast_df['power'].describe())
-```
-
-## Forecast Visualization
-
-```{python}
-#| label: forecast-visualization
-# Plot the forecast time series with persistence comparison
-plt.figure(figsize=(15, 10))
-
-# Plot all forecasts
+# 1. Plot all model forecasts for June 2025
 plt.subplot(3, 1, 1)
-colors = ['red', 'blue', 'green', 'orange', 'purple']
 for i, (model_name, forecast) in enumerate(forecasts.items()):
-    plt.plot(forecast_data['DateTime'], forecast,
-             label=model_name, alpha=0.7, linewidth=1, color=colors[i])
-
+    plt.plot(forecast_data['DateTime'], forecast, label=model_name, alpha=0.7, linewidth=1, color=colors[i])
 plt.xlabel('Date')
 plt.ylabel('Solar Power Generation (MWh)')
 plt.title('Comparison of All Model Forecasts for June 2025')
@@ -789,19 +701,16 @@ plt.legend()
 plt.xticks(rotation=45)
 plt.grid(True, alpha=0.3)
 
-# Plot daily patterns (average by hour) - Best model vs Persistence
+# 2. Average daily solar power pattern - best model vs persistence
 plt.subplot(3, 1, 2)
 forecast_df['hour'] = forecast_df['DateTime'].dt.hour
 persistence_forecast_df['hour'] = persistence_forecast_df['DateTime'].dt.hour
-
 hourly_avg_best = forecast_df.groupby('hour')['power'].mean()
 hourly_avg_persistence = persistence_forecast_df.groupby('hour')['power'].mean()
-
-plt.plot(hourly_avg_best.index, hourly_avg_best.values, 
+plt.plot(hourly_avg_best.index, hourly_avg_best.values,
          marker='o', linewidth=2, label=f'{best_model_name}', color='blue')
-plt.plot(hourly_avg_persistence.index, hourly_avg_persistence.values, 
+plt.plot(hourly_avg_persistence.index, hourly_avg_persistence.values,
          marker='s', linewidth=2, label='Persistence', color='red', linestyle='--')
-
 plt.xlabel('Hour of Day')
 plt.ylabel('Average Solar Power (MWh)')
 plt.title('Average Daily Solar Power Pattern - Best Model vs Persistence Baseline')
@@ -809,72 +718,17 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 plt.xticks(range(0, 24, 2))
 
-# Plot improvement over persistence
+# 3. Improvement over persistence baseline (forecast difference)
 plt.subplot(3, 1, 3)
 improvement = forecast_df['power'] - persistence_forecast_df['power']
-plt.plot(forecast_df['DateTime'], improvement, color='green', alpha=0.7)
-plt.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+plt.plot(forecast_df['DateTime'], improvement, color='green', linewidth=1)
 plt.xlabel('Date')
-plt.ylabel('Power Difference (MWh)')
-plt.title(f'{best_model_name} Improvement over Persistence Baseline')
-plt.xticks(rotation=45)
+plt.ylabel('Improvement in Power (MWh)')
+plt.title('Improvement of Best Model Forecast over Persistence Baseline')
 plt.grid(True, alpha=0.3)
-
+plt.xticks(rotation=45)
 plt.tight_layout()
-plt.show()
 
-# Statistical comparison
-print("\n=== Statistical Comparison: Best Model vs Persistence ===")
-print(f"Mean absolute difference: {np.mean(np.abs(improvement)):.2f} MWh")
-print(f"Mean improvement: {np.mean(improvement):.2f} MWh")
-print(f"Std of improvement: {np.std(improvement):.2f} MWh")
-print(f"Max improvement: {np.max(improvement):.2f} MWh")
-print(f"Min improvement: {np.min(improvement):.2f} MWh")
+plt.show()
 ```
 
-## Conclusion
-
-This analysis successfully developed and compared five different models for solar power forecasting.
-
-1. **Persistence Model**: Simple baseline using historical seasonal patterns
-
-2. **Linear Regression**: Simple statistical baseline model  
-
-3. **XGBoost**: Strong performance on tabular data with automatic feature selection
-
-4. **Feedforward Neural Network**: Deep learning approach for capturing non-linear patterns
-
-5. **LSTM**: Sequence modeling to capture temporal dependencies
-
-### Key Results:
-
-- **Best performing model**: {best_model_name} (based on validation RMSE)
-
-- **Persistence baseline RMSE**: {val_rmse_persistence:.2f}
-
-- **Best model RMSE**: {results.loc[best_model_idx, 'Validation RMSE']:.2f}
-
-- **Improvement over persistence**: {results.loc[best_model_idx, 'RMSE Improvement vs Persistence']:.1f}%
-
-### Key Insights:
-- The persistence model provides a strong baseline, demonstrating the importance of seasonal patterns in solar power generation
-
-- Surface solar radiation and temperature remain the most important predictors across all models
-
-- Advanced models show meaningful improvements over the persistence baseline, validating their complexity
-
-- The cyclical time features help capture daily and seasonal patterns effectively
-
-### Baseline Importance:
-
-The persistence model serves as a crucial benchmark because:
-
-- It represents the minimum performance expectation for any forecasting model
-
-- It helps quantify the value added by more complex approaches
-
-- It provides interpretable results based on historical patterns
-
-- It's computationally efficient and robust
-
-The final forecast has been saved as `forecast_q1.csv` with hourly predictions for the entire month of June 2025, along with detailed performance comparisons against the persistence baseline.
