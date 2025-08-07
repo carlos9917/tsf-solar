@@ -11,6 +11,38 @@ from shapely.geometry import Point
 import argparse
 import os
 from pathlib import Path
+import requests
+import zipfile
+
+def download_natural_earth(data_dir="data/geospatial"):
+    """Downloads and extracts the Natural Earth dataset if not present."""
+    data_dir = Path(data_dir)
+    shapefile_path = data_dir / "ne_110m_admin_0_countries" / "ne_110m_admin_0_countries.shp"
+
+    if shapefile_path.exists():
+        return shapefile_path
+
+    print("Downloading Natural Earth dataset...")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    url = "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/110m/cultural/ne_110m_admin_0_countries.zip"
+    zip_path = data_dir / "ne_110m_admin_0_countries.zip"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(zip_path, 'wb') as f:
+            f.write(response.content)
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(data_dir / "ne_110m_admin_0_countries")
+        
+        zip_path.unlink() # Clean up the zip file
+        print("Successfully downloaded and extracted Natural Earth dataset.")
+        return shapefile_path
+    except Exception as e:
+        print(f"Failed to download or process Natural Earth dataset: {e}")
+        return None
 
 def main(date_str, cycle_str):
     """Main function to perform analysis."""
@@ -38,12 +70,15 @@ def main(date_str, cycle_str):
     daily_avg_wpd = gfs_data.groupby(['lat', 'lon', 'forecast_day'])['wind_power_density'].mean().reset_index()
 
     # Get European country boundaries
-    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    world_shapefile = download_natural_earth()
+    if world_shapefile is None:
+        print("Could not load map data. Aborting visualization.")
+        return
+    world = gpd.read_file(world_shapefile)
     europe = world[world.continent == 'Europe']
 
     # Create faceted plot
     unique_days = sorted(daily_avg_wpd['forecast_day'].unique())
-    # Define the projection
     proj = ccrs.LambertConformal(central_longitude=10.0, central_latitude=52.0)
     fig, axes = plt.subplots(1, len(unique_days), figsize=(20, 10), subplot_kw={'projection': proj})
     if len(unique_days) == 1:
@@ -60,18 +95,15 @@ def main(date_str, cycle_str):
         ax.add_feature(cfeature.OCEAN)
         ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
 
-        # Use tricontourf for unstructured data
         contour = ax.tricontourf(day_data['lon'], day_data['lat'], day_data['wind_power_density'],
                                  transform=ccrs.PlateCarree(), cmap='viridis', levels=15)
 
         ax.set_title(f"Forecast Day: {day.strftime('%Y-%m-%d')}")
 
-    # Add a single colorbar
     fig.colorbar(contour, ax=axes, orientation='horizontal', fraction=0.05, pad=0.1, label="Wind Power Density (W/m²)")
     plt.suptitle(f"Daily Average Wind Power Density (GFS Run: {date_str} Cycle {cycle_str})", fontsize=16)
     plt.tight_layout(rect=[0, 0.05, 1, 0.96])
 
-    # Save the map
     output_dir = Path("data/processed/plots")
     output_dir.mkdir(parents=True, exist_ok=True)
     plot_path = output_dir / f"wpd_map_faceted_{date_str}_{cycle_str}.png"
@@ -81,15 +113,12 @@ def main(date_str, cycle_str):
     # --- 4. Country Ranking ---
     total_avg_wpd = gfs_data.groupby(['lat', 'lon'])['wind_power_density'].mean().reset_index()
     
-    # Convert points to GeoDataFrame
     geometry = [Point(xy) for xy in zip(total_avg_wpd.lon, total_avg_wpd.lat)]
     points_gdf = gpd.GeoDataFrame(total_avg_wpd, crs="EPSG:4326", geometry=geometry)
 
-    # Perform spatial join
     countries_gdf = world[['name', 'iso_a3', 'geometry']]
     joined_gdf = gpd.sjoin(points_gdf, countries_gdf, how="inner", predicate='within')
 
-    # Calculate average WPD per country
     country_avg = joined_gdf.groupby('name')['wind_power_density'].mean().reset_index()
     country_results = country_avg.sort_values('wind_power_density', ascending=False).reset_index(drop=True)
     country_results['rank'] = country_results.index + 1
@@ -98,7 +127,6 @@ def main(date_str, cycle_str):
     print("\n--- Country Wind Power Density Rankings (3-Day Average) ---")
     print(country_results.head(20))
 
-    # Save rankings to CSV
     csv_path = output_dir / f"country_rankings_{date_str}_{cycle_str}.csv"
     country_results.to_csv(csv_path, index=False)
     print(f"\nSuccessfully saved country rankings to {csv_path}")
@@ -107,12 +135,10 @@ def main(date_str, cycle_str):
     con = sqlite3.connect(db_path)
     cursor = con.cursor()
 
-    # Delete existing rankings
     delete_query = "DELETE FROM country_rankings WHERE forecast_date = ? AND cycle = ?"
     cursor.execute(delete_query, (date_str, cycle_str))
     print(f"\nDeleted existing rankings for {date_str} cycle {cycle_str}.")
 
-    # Insert new rankings
     db_rankings = country_results.rename(columns={'name': 'country', 'avg_wpd_3day': 'avg_wind_power_density'})
     db_rankings['forecast_date'] = date_str
     db_rankings['cycle'] = cycle_str
