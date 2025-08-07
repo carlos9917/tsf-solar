@@ -349,13 +349,23 @@ print(f"\nBest performing model: {best_model_name}")
 
 ### 6.1. Performance Visualization
 
-The bar chart below clearly shows that **LightGBM** and **XGBoost** are the top-performing models, with LightGBM having a slight edge. The complex neural network models did not outperform the gradient boosting methods in this case.
+The bar chart below clearly shows that the **FFN (Feedforward Neural Network)** is the top-performing model, achieving the lowest RMSE on the 2025 validation set. This indicates its strong predictive power for this specific forecasting task.
 
 ```{python}
 #| label: plot-comparison
 #| fig-cap: "Comparison of Model Performance on the 2025 Validation Set"
-plt.figure(figsize=(10, 6))
-sns.barplot(x='RMSE', y='Model', data=results_df, palette='viridis', orient='h')
+plt.figure(figsize=(12, 7))
+bars = sns.barplot(x='RMSE', y='Model', data=results_df, palette='viridis', orient='h')
+
+# Add RMSE values as labels on the bars
+for index, row in results_df.iterrows():
+    bars.text(row.RMSE, 
+              index, 
+              f' {row.RMSE:.2f}', 
+              color='black', 
+              ha="left", 
+              va='center')
+
 plt.title('Model Comparison: Root Mean Squared Error (RMSE)')
 plt.xlabel('RMSE (MWh) - Lower is Better')
 plt.ylabel('Model')
@@ -365,14 +375,18 @@ plt.show()
 
 ### 6.2. Predicted vs. Actual Power
 
-The scatter plot for the best model, LightGBM, shows a strong correlation between predicted and actual values. As noted, there is a slight tendency to under-predict the highest power peaks, a common characteristic of tree-based models. However, the overall performance is excellent, with an R² of **`r round(results_df.iloc[0]['R²'], 4)`**.
+The scatter plot for the best model, **`r print(best_model_name)`**, shows a strong correlation between predicted and actual values. The overall performance is excellent, with an R² of **`r round(results_df.iloc[0]['R²'], 4)`**.
 
 ```{python}
 #| label: plot-scatter-best
-#| fig-cap: "Predicted vs. Actual Power for the Best Model (LightGBM)"
+#| fig-cap: "Predicted vs. Actual Power for the Best Model"
 plt.figure(figsize=(8, 8))
-sns.scatterplot(x=y_val, y=predictions[best_model_name], s=5, alpha=0.5)
-plt.plot([0, y_val.max()], [0, y_val.max()], 'r--', lw=2, label='Perfect Forecast')
+# Ensure we use the correct validation set for the scatter plot
+actuals_for_best_model = y_val_seq if best_model_name == 'LSTM' else y_val
+predictions_for_best_model = predictions[best_model_name]
+
+sns.scatterplot(x=actuals_for_best_model, y=predictions_for_best_model, s=5, alpha=0.5)
+plt.plot([0, actuals_for_best_model.max()], [0, actuals_for_best_model.max()], 'r--', lw=2, label='Perfect Forecast')
 plt.title(f'Performance of Best Model ({best_model_name})')
 plt.xlabel('Actual Power (MWh)')
 plt.ylabel('Predicted Power (MWh)')
@@ -383,26 +397,68 @@ plt.show()
 
 ## 7. Final Forecast for June 2025
 
-Having identified LightGBM as the best model, we use it to generate the final forecast.
+Having identified **`r print(best_model_name)`** as the best model, we use it to generate the final forecast.
 
-1.  **Retrain the Model:** The LightGBM model is retrained on the **entire historical dataset** (2022-01-01 to 2025-05-31) to learn from all available information.
+1.  **Retrain the Model:** The selected model is retrained on the **entire historical dataset** (2022-01-01 to 2025-05-31) to learn from all available information.
 2.  **Generate Forecast:** The final model is used to predict the hourly solar power for June 2025.
 
 ```{python}
 #| label: final-forecast
 # 1. Retrain the best model on all available data
 print(f"Retraining {best_model_name} on the full dataset...")
-final_model = lgb.LGBMRegressor(**lgbm_params)
-final_model.fit(data[features], data[target])
+
+# Prepare full dataset for retraining
+X_full, y_full = data[features], data[target]
+X_full_scaled = scaler.fit_transform(X_full)
+
+if best_model_name == 'FFN':
+    full_ds = TensorDataset(torch.tensor(X_full_scaled, dtype=torch.float32), torch.tensor(y_full.values, dtype=torch.float32))
+    full_loader = DataLoader(full_ds, batch_size=128, shuffle=True)
+    final_model = FFN(X_full_scaled.shape[1])
+    # We can reduce epochs for the final retrain as we don't need early stopping
+    final_model = train_pytorch_model(final_model, full_loader, full_loader, epochs=30, patience=30) 
+elif best_model_name == 'LSTM':
+    X_full_seq, y_full_seq = create_sequences(X_full_scaled, y_full.values, seq_length)
+    full_ds_lstm = TensorDataset(torch.tensor(X_full_seq, dtype=torch.float32), torch.tensor(y_full_seq, dtype=torch.float32))
+    full_loader_lstm = DataLoader(full_ds_lstm, batch_size=128, shuffle=True)
+    final_model = LSTMModel(X_full_scaled.shape[1])
+    final_model = train_pytorch_model(final_model, full_loader_lstm, full_loader_lstm, epochs=30, patience=30)
+else:
+    # For tree-based models like LightGBM or XGBoost
+    model_map = {'LightGBM': lgb.LGBMRegressor(**lgbm_params), 'XGBoost': xgb.XGBRegressor(random_state=42, n_jobs=-1)}
+    final_model = model_map.get(best_model_name, Ridge())
+    if 'scaled' in locals() and (best_model_name == 'Ridge'):
+        final_model.fit(X_full_scaled, y_full)
+    else:
+        final_model.fit(X_full, y_full)
+
 
 # 2. Prepare forecast features
 forecast_data = atm_features[(atm_features['DateTime'] >= '2025-06-01') & 
                              (atm_features['DateTime'] < '2025-07-01')].copy()
 forecast_data = forecast_data.set_index('DateTime')
 forecast_data = create_features(forecast_data)
+X_forecast = forecast_data[features]
 
 # 3. Generate final forecast
-final_forecast_power = final_model.predict(forecast_data[features])
+if best_model_name in ['FFN', 'LSTM', 'Ridge']:
+    X_forecast_scaled = scaler.transform(X_forecast)
+    if best_model_name == 'LSTM':
+        # For LSTM, we need to use the last part of the training data to form a sequence
+        last_sequence = X_full_scaled[-seq_length:]
+        forecast_sequences = []
+        # This is a simplified forecast loop; a more robust one would be recursive
+        for i in range(len(X_forecast_scaled)):
+            current_sequence = np.vstack([last_sequence[i:], X_forecast_scaled[:i+1]])
+            forecast_sequences.append(current_sequence)
+        X_forecast_tensor = torch.tensor(np.array(forecast_sequences), dtype=torch.float32)
+        final_forecast_power = get_predictions(final_model, [(X_forecast_tensor, None)])
+    else:
+        X_forecast_tensor = torch.tensor(X_forecast_scaled, dtype=torch.float32)
+        final_forecast_power = get_predictions(final_model, [(X_forecast_tensor, None)])
+else:
+    final_forecast_power = final_model.predict(X_forecast)
+
 final_forecast_power[final_forecast_power < 0] = 0
 
 # 4. Create and save the submission file
@@ -414,7 +470,7 @@ print("Forecast for June 2025 generated and saved to 'forecast_q1.csv'")
 
 ### 7.1. Visualization of Final Forecast
 
-The plot below shows the final hourly forecast for the entire month of June 2025, as generated by the LightGBM model.
+The plot below shows the final hourly forecast for the entire month of June 2025, as generated by the **`r print(best_model_name)`** model.
 
 ```{python}
 #| label: plot-final-forecast
