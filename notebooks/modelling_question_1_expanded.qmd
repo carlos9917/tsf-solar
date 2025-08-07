@@ -138,17 +138,20 @@ class PersistenceModel:
         self.historical_patterns = {}
 
     def fit(self, data):
-        patterns = {}
         # Use exponential weighting to give more importance to recent data
         weighted_data = data.copy()
         time_delta = (weighted_data.index - weighted_data.index.min()).days
-        weights = np.exp(time_delta / 365) # Exponentially decay over a year
+        
+        # FIX: Convert weights to a pandas Series with the correct index
+        weights = pd.Series(np.exp(time_delta / 365), index=weighted_data.index)
         
         weighted_data['weighted_power'] = weighted_data['power'] * weights
         
         # Group by month and hour
         grouped = weighted_data.groupby([weighted_data.index.month, weighted_data.index.hour])
         sum_weighted_power = grouped['weighted_power'].sum()
+        
+        # This apply function now works correctly as 'weights' is a Series
         sum_weights = grouped['power'].apply(lambda x: weights.loc[x.index].sum())
         
         self.historical_patterns = sum_weighted_power / sum_weights
