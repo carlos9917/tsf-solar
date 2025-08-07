@@ -131,8 +131,11 @@ total_avg_wpd <- gfs_data %>%
 # Convert to a raster for spatial analysis
 total_wpd_raster <- terra::rast(total_avg_wpd, type = "xyz", crs = "EPSG:4326")
 
+# Ensure the country polygons use the same CRS as the raster
+europe_countries_proj <- st_transform(europe_countries, crs = st_crs(total_wpd_raster))
+
 # Use exact_extract to get the mean WPD for each country over the full forecast period
-country_avg <- exact_extract(total_wpd_raster, europe_countries, "mean")
+country_avg <- exact_extract(total_wpd_raster, europe_countries_proj, "mean")
 
 # Combine the results with the country names and rank them
 country_results <- europe_countries %>%
