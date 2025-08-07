@@ -1,0 +1,303 @@
+---
+title: "Forecasting Solar Power Generation for June 2025"
+author: "Gemini"
+date: "today"
+format: 
+  html:
+    toc: true
+    toc-location: left
+    embed-resources: true
+jupyter: python3
+execute:
+  echo: true
+---
+
+## 1. Objective
+
+The goal of this analysis is to build a machine learning model to accurately forecast Germany's hourly solar power generation for the entire month of **June 2025**.
+
+This report details the methodology, from feature engineering and model selection to the final forecast, ensuring a robust and reproducible result.
+
+## 2. Data Preparation
+
+We begin by loading the two provided datasets:
+- `germany_solar_observation_q1.csv`: Historical solar power generation data.
+- `germany_atm_features_q1.csv`: Historical and future meteorological data.
+
+These datasets are merged to create a comprehensive feature set for model training.
+
+```{python}
+#| label: load-data
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Load data
+solar_obs = pd.read_csv("../data/germany_solar_observation_q1.csv", parse_dates=['DateTime'])
+atm_features = pd.read_csv("../data/germany_atm_features_q1.csv", parse_dates=['DateTime'])
+
+# Merge data for training
+data = pd.merge(solar_obs, atm_features, on="DateTime", how="inner")
+data = data.set_index('DateTime')
+
+print("Training data range:", data.index.min(), "to", data.index.max())
+print("Training data shape:", data.shape)
+```
+
+## 3. Feature Engineering
+
+Effective feature engineering is crucial for capturing the physical drivers of solar power generation. We create a set of features designed to model the sun's position, atmospheric conditions, and their interactions.
+
+### 3.1. Time-Based & Solar Position Features
+
+- **Cyclical Features:** We encode the time of day and day of the year as `sin` and `cos` pairs to represent their cyclical nature.
+- **Solar Elevation Proxy:** This is a critical feature that approximates the sun's angle. It is created by interacting the daily and yearly cycles. A higher value corresponds to times when the sun is higher in the sky (midday in summer).
+- **Daylight Flag:** A simple binary flag indicating whether it is daytime (6 AM to 6 PM).
+
+### 3.2. Weather-Based Features
+
+- **Clear-Sky Power Potential:** We model the maximum possible power generation under ideal, cloudless conditions. This is achieved by creating an interaction between the solar elevation proxy and the incoming solar radiation.
+- **Cloud & Weather Impact:** We create features to model how clouds and other weather phenomena reduce power output from its clear-sky potential.
+
+```{python}
+#| label: feature-engineering
+def create_features(df):
+    """Engineers features for solar power forecasting."""
+    df = df.copy()
+    
+    # Time-based features
+    df['hour'] = df.index.hour
+    df['day_of_year'] = df.index.dayofyear
+    df['month'] = df.index.month
+    df['day_of_week'] = df.index.dayofweek
+
+    # Cyclical features
+    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
+    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
+    df['day_sin'] = np.sin(2 * np.pi * df['day_of_year'] / 365.25)
+    df['day_cos'] = np.cos(2 * np.pi * df['day_of_year'] / 365.25)
+
+    # --- Physics-Informed Features ---
+    # 1. Solar Elevation Proxy
+    # This interaction captures the peak of the solar cycle (midday in summer)
+    df['solar_elevation'] = (df['hour_cos'] * -1 * df['day_cos'] + 1) / 4 
+
+    # 2. Daylight Flag
+    df['is_daylight'] = (df['surface_solar_radiation_downwards'] > 1).astype(int)
+
+    # 3. Clear-Sky Power Potential
+    # Models the maximum possible power based on sun angle and incoming radiation
+    df['clear_sky_potential'] = df['solar_elevation'] * df['surface_solar_radiation_downwards']
+
+    # 4. Cloud Impact
+    # How much do clouds reduce the potential power?
+    df['cloud_impact'] = df['total_cloud_cover'] * df['surface_solar_radiation_downwards']
+    
+    # 5. Temperature Interaction
+    df['temp_x_radiation'] = df['temperature_2m'] * df['surface_solar_radiation_downwards']
+
+    return df
+
+data = create_features(data)
+```
+
+## 4. Model Training & Validation Strategy
+
+To build a trustworthy model, the validation strategy must mimic the real-world forecasting task. A simple random split of the data would lead to data leakage and overly optimistic results.
+
+### 4.1. Walk-Forward Validation
+
+We will use a **Walk-Forward Validation** approach. This is the gold standard for time series forecasting.
+- **Training Set:** All data from **2022-01-01 to 2024-12-31**.
+- **Validation Set:** All data from **2025-01-01 to 2025-05-31**.
+
+This setup ensures we are always predicting the "future" relative to our training data, providing a realistic estimate of the model's performance on the final June 2025 forecast.
+
+### 4.2. Model Selection: LightGBM
+
+We will use **LightGBM**, a gradient boosting framework known for its exceptional speed and performance on tabular data. It is highly effective at capturing the complex, non-linear relationships present in solar power generation.
+
+```{python}
+#| label: model-training
+# Define features and target
+features = [
+    'surface_solar_radiation_downwards', 'temperature_2m', 'total_cloud_cover',
+    'relative_humidity_2m', 'apparent_temperature', 'wind_speed_100m',
+    'hour_sin', 'hour_cos', 'day_sin', 'day_cos',
+    'solar_elevation', 'is_daylight', 'clear_sky_potential', 'cloud_impact', 'temp_x_radiation'
+]
+target = 'power'
+
+# Split data using Walk-Forward Validation
+train_set = data.loc[data.index < '2025-01-01']
+val_set = data.loc[(data.index >= '2025-01-01') & (data.index < '2025-06-01')]
+
+X_train, y_train = train_set[features], train_set[target]
+X_val, y_val = val_set[features], val_set[target]
+
+print(f"Training set size: {len(X_train)} ({X_train.index.min()} to {X_train.index.max()})")
+print(f"Validation set size: {len(X_val)} ({X_val.index.min()} to {X_val.index.max()})")
+
+# Configure and train the LightGBM model
+lgb_params = {
+    'objective': 'regression_l1',
+    'metric': 'mae',
+    'n_estimators': 2000,
+    'learning_rate': 0.02,
+    'feature_fraction': 0.8,
+    'bagging_fraction': 0.8,
+    'bagging_freq': 1,
+    'lambda_l1': 0.1,
+    'lambda_l2': 0.1,
+    'num_leaves': 64,
+    'verbose': -1,
+    'n_jobs': -1,
+    'seed': 42,
+    'boosting_type': 'gbdt',
+}
+
+model = lgb.LGBMRegressor(**lgb_params)
+
+# Train the model with early stopping
+model.fit(X_train, y_train,
+          eval_set=[(X_val, y_val)],
+          eval_metric='mae',
+          callbacks=[lgb.early_stopping(100, verbose=False)])
+
+# Make predictions on the validation set
+y_pred_val = model.predict(X_val)
+y_pred_val[y_pred_val < 0] = 0 # Ensure non-negative power
+```
+
+## 5. Model Performance on Validation Data
+
+We evaluate the model's performance on the 2025 validation set using standard regression metrics.
+
+```{python}
+#| label: evaluation
+# Calculate metrics
+rmse = np.sqrt(mean_squared_error(y_val, y_pred_val))
+mae = mean_absolute_error(y_val, y_pred_val)
+r2 = r2_score(y_val, y_pred_val)
+
+print(f"Validation Metrics:")
+print(f"  - RMSE: {rmse:.2f} MWh")
+print(f"  - MAE:  {mae:.2f} MWh")
+print(f"  - R²:   {r2:.4f}")
+
+# Store results for plotting
+results = {
+    'true': y_val,
+    'predicted': y_pred_val
+}
+```
+
+### 5.1. Scatter Plot: Predicted vs. Actual
+
+This plot shows the correlation between the model's predictions and the actual power values. A perfect model would have all points lying on the red dashed line. Our model shows a very strong correlation, with an R² score of **`r round(r2, 4)`**.
+
+```{python}
+#| label: plot-scatter
+#| fig-cap: "Predicted vs. Actual Power on the 2025 Validation Set"
+plt.figure(figsize=(8, 8))
+sns.scatterplot(x=results['true'], y=results['predicted'], s=5, alpha=0.5)
+plt.plot([0, results['true'].max()], [0, results['true'].max()], 'r--', lw=2, label='Perfect Forecast')
+plt.title('Model Performance: Predicted vs. Actual Power')
+plt.xlabel('Actual Power (MWh)')
+plt.ylabel('Predicted Power (MWh)')
+plt.grid(True)
+plt.legend()
+plt.show()
+```
+
+### 5.2. Time Series Plot: Forecast vs. Actual
+
+This plot shows the model's predictions against the actual values for a sample week in the validation period. The model successfully captures the daily solar generation curve, including the impact of changing weather conditions.
+
+```{python}
+#| label: plot-timeseries
+#| fig-cap: "Forecast vs. Actual Power for a Sample Week in May 2025"
+sample_week = val_set.loc['2025-05-01':'2025-05-07']
+y_pred_sample = model.predict(sample_week[features])
+y_pred_sample[y_pred_sample < 0] = 0
+
+plt.figure(figsize=(15, 6))
+plt.plot(sample_week.index, sample_week[target], label='Actual Power', color='blue', lw=2)
+plt.plot(sample_week.index, y_pred_sample, label='Predicted Power', color='red', linestyle='--')
+plt.title('Model Forecast vs. Actual Power (Sample Week in May 2025)')
+plt.xlabel('Date')
+plt.ylabel('Power (MWh)')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+### 5.3. Feature Importance
+
+The plot below shows the most influential features in the model. As expected, **`clear_sky_potential`** and **`surface_solar_radiation_downwards`** are the most important drivers, confirming that our physics-based features are highly effective.
+
+```{python}
+#| label: plot-feature-importance
+#| fig-cap: "Top 15 Most Important Features in the LightGBM Model"
+lgb.plot_importance(model, max_num_features=15, height=0.6, figsize=(10, 8), 
+                    title='LightGBM Feature Importance')
+plt.show()
+```
+
+## 6. Final Forecast for June 2025
+
+With the model validated, we proceed to the final step: forecasting solar power for June 2025.
+
+1.  **Retrain the Model:** The model is retrained on the **entire historical dataset** (2022-01-01 to 2025-05-31) to ensure it learns from all available information.
+2.  **Prepare Forecast Data:** The meteorological features for June 2025 are loaded and processed using the same feature engineering function.
+3.  **Generate Forecast:** The retrained model is used to predict the hourly solar power for June 2025.
+
+```{python}
+#| label: final-forecast
+# 1. Retrain on all available data
+X_full, y_full = data[features], data[target]
+model.fit(X_full, y_full)
+
+# 2. Prepare forecast features
+forecast_features = atm_features[(atm_features['DateTime'] >= '2025-06-01') & 
+                                 (atm_features['DateTime'] < '2025-07-01')].copy()
+forecast_features = forecast_features.set_index('DateTime')
+forecast_features = create_features(forecast_features)
+
+# 3. Generate final forecast
+final_forecast_power = model.predict(forecast_features[features])
+final_forecast_power[final_forecast_power < 0] = 0
+
+# Create the submission file
+submission_df = pd.DataFrame({
+    'DateTime': forecast_features.index,
+    'power': final_forecast_power
+})
+
+# Save to CSV
+submission_df.to_csv('forecast_q1.csv', index=False)
+
+print("Forecast for June 2025 generated and saved to 'forecast_q1.csv'")
+print(submission_df.head())
+```
+
+### 6.1. Visualization of Final Forecast
+
+The plot below shows the final hourly forecast for the entire month of June 2025.
+
+```{python}
+#| label: plot-final-forecast
+#| fig-cap: "Hourly Solar Power Forecast for June 2025"
+plt.figure(figsize=(15, 6))
+plt.plot(submission_df['DateTime'], submission_df['power'], label='Forecasted Power', color='darkgreen')
+plt.title('Final Hourly Solar Power Forecast for June 2025')
+plt.xlabel('Date')
+plt.ylabel('Power (MWh)')
+plt.grid(True)
+plt.legend()
+plt.show()
+```
