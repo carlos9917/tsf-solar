@@ -120,8 +120,8 @@ class GFSDataExtractor:
             # The key is the name we expect cfgrib to assign to the variable.
             target_variables = {
                 't2m':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
-                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'}},
-                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'}},
+                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100u'}},
+                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100v'}},
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
             }
 
@@ -150,6 +150,8 @@ class GFSDataExtractor:
                 ds_subset = ds.sel(longitude=slice(lon_min_converted, lon_max_converted))
 
             ds_subset = ds_subset.sel(latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']))
+            import pdb
+            pdb.set_trace()
 
             # Create a DataFrame from the xarray Dataset
             df = ds_subset.to_dataframe().reset_index()
