@@ -634,6 +634,19 @@ best_forecast = forecasts[best_model_name]
 
 ```{python}
 #| label: visualization
+
+# Create forecast dataframes needed for visualization
+forecast_df = pd.DataFrame({
+    'DateTime': forecast_data['DateTime'].values,
+    'power': best_forecast
+})
+# Ensure no negative predictions
+forecast_df['power'] = np.maximum(forecast_df['power'], 0)
+
+persistence_forecast_df = pd.DataFrame({
+    'DateTime': forecast_data['DateTime'].values,
+    'power': forecast_persistence
+})
 import matplotlib.dates as mdates
 
 # Plot validation predictions vs actual values

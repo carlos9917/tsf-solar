@@ -1,0 +1,16 @@
+dash==2.14.1
+plotly==5.17.0
+pandas==2.0.3
+numpy==1.24.3
+xarray==2023.8.0
+netcdf4==1.6.4
+requests==2.31.0
+dask==2023.8.1
+loguru==0.7.2
+watchdog==3.0.0
+schedule==1.2.0
+cfgrib==0.9.10.4
+cartopy==0.22.0
+geopandas==0.13.2
+matplotlib==3.7.2
+seaborn==0.12.2
