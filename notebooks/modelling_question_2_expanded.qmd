@@ -1,6 +1,6 @@
 ---
-title: "Question 2 (Expanded): Detecting True Demand Growth in a Solar-Rich Energy System"
-author: "Gemini"
+title: "Question 2: Detecting True Demand Growth in a Solar-Rich Energy System"
+author: "Carlos Peralta"
 format: html
 jupyter: python3
 execute:
@@ -15,19 +15,18 @@ lang: en
 
 This notebook addresses Question 2 of the meteorological data scientist case study. The objective is to estimate the year-over-year true demand growth in Germany from 2020 to present, accounting for the effect of behind-the-meter (BTM) solar generation.
 
-This is an **expanded and improved version** of the original analysis. It incorporates several methodological enhancements based on an expert review:
-
-1.  **Accurate Holiday Modeling:** A proper German holiday calendar has been included to prevent anomalous demand on those days from skewing the results.
-2.  **Unbiased Regression Model:** The regression-based BTM estimation model (Method 2) is now trained exclusively on non-solar hour data to remove a key source of bias and provide a more accurate baseline demand prediction.
-3.  **Refined BTM Estimation:** The hardcoded linear growth assumption in the weather-based model (Method 1) has been removed in favor of a more data-driven approach.
-
 ### Key Questions to Address
 
 1.  How can we isolate the effect of BTM solar generation on observed demand?
 2.  Can we estimate what demand would have been during solar hours without rooftop solar?
 3.  What is the difference between projected demand and observed demand?
 4.  How has BTM solar generation evolved from 2020 to present?
-5.  **What is the year-over-year growth in *true* demand?** (A new question to complete the analysis)
+5.  What is the year-over-year growth in *true* demand?
+
+In order to answer these quetions we will do some feature engineering and
+then build multiple estimation methods based on weather (baseline), regression
+and time series decomposition.
+
 
 ## Setup
 
@@ -45,6 +44,7 @@ from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import holidays
+from rich import print
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -56,6 +56,7 @@ print("Libraries loaded successfully")
 ```
 
 ## Data Loading and Initial Exploration
+We loads merge and prepares the data.
 
 ```{python}
 #| label: load-data
@@ -72,7 +73,8 @@ print(f"Merged data shape: {data_q2.shape}")
 print(f"Merged data range: {data_q2['DateTime'].min()} to {data_q2['DateTime'].max()}")
 ```
 
-## Feature Engineering (Improved)
+## Feature Engineering
+In the following section we create a rich set of temporal and weather-related features, which are crucial for demand modeling.
 
 ```{python}
 #| label: feature-engineering
@@ -104,7 +106,7 @@ def add_temporal_features(df):
     # Weekend indicator
     df['is_weekend'] = (df['dayofweek'] >= 5).astype(int)
     
-    # --- IMPROVEMENT: Add accurate German holiday calendar ---
+    # Add German holiday calendar ---
     de_holidays = holidays.Germany(years=np.arange(2020, 2026))
     df['is_holiday'] = df['DateTime'].dt.date.astype('datetime64[ns]').isin(de_holidays).astype(int)
     
@@ -125,18 +127,17 @@ print("Feature engineering completed.")
 print(f"Number of holidays identified: {data_q2_expanded['is_holiday'].sum()}")
 ```
 
-## BTM Solar Estimation Methods (Revised)
+## BTM Solar Estimation Methods
 
-### Method 1 (Revised): Demand Gap Analysis
+### Method 1: Demand Gap Analysis
 
 This method is now purely data-driven. It learns a "normal" demand pattern from hours with no solar generation and uses it to predict what demand *should have been* during solar hours. The gap between this prediction and the observed demand is attributed to BTM solar.
 
 ```{python}
-#| label: method1-revised
+#| label: method1
 class DemandGapBTMEstimator:
     """
     Estimates BTM solar by modeling baseline demand from non-solar hours.
-    This version removes the hardcoded growth assumptions.
     """
     def __init__(self):
         self.demand_model = None
@@ -149,7 +150,7 @@ class DemandGapBTMEstimator:
         
     def fit(self, data):
         """Fit a demand model exclusively on non-solar hour data."""
-        # --- KEY IMPROVEMENT: Train only on non-solar hours ---
+        # Train only on non-solar hours
         train_data = data[data['is_solar_hours'] == 0].copy()
         
         X_train = train_data[self.feature_names]
@@ -185,8 +186,8 @@ class DemandGapBTMEstimator:
         
         return results
 
-# Apply Revised Method 1
-print("=== Method 1 (Revised): Demand Gap Analysis ===")
+# Apply Method 1
+print("=== Method 1: Demand Gap Analysis ===")
 estimator_m1 = DemandGapBTMEstimator()
 estimator_m1.fit(data_q2_expanded)
 results_m1 = estimator_m1.estimate_btm_solar(data_q2_expanded)
@@ -195,15 +196,16 @@ print("BTM Solar Estimation Summary (Method 1):")
 print(results_m1.groupby('year')['btm_method1'].sum().round(2))
 ```
 
-### Method 2 (Revised): Unbiased Regression Decomposition
+### Method 2: Unbiased Regression Decomposition
 
-This method uses a simple Ridge regression model but is now correctly trained **only on non-solar hour data** to prevent the model from learning the BTM-suppressed demand as "normal". This removes the primary source of bias from the original approach.
+This method uses a simple Ridge regression model, trained only on non-solar hour data to prevent the model from learning the BTM-suppressed demand as "normal". 
+This removes a possible source of bias.
 
 ```{python}
-#| label: method2-revised
+#| label: method2
 class UnbiasedRegressionBTMEstimator:
     """
-    Uses Ridge regression trained *only* on non-solar hours to estimate BTM.
+    Uses Ridge regression trained only on non-solar hours to estimate BTM.
     """
     def __init__(self):
         self.demand_model = None
@@ -216,7 +218,7 @@ class UnbiasedRegressionBTMEstimator:
         
     def fit(self, data):
         """Fit a Ridge regression model exclusively on non-solar hour data."""
-        # --- KEY IMPROVEMENT: Train only on non-solar hours ---
+        # Train only on non-solar hours ---
         train_data = data[data['is_solar_hours'] == 0].copy()
         
         X_train = train_data[self.feature_names]
@@ -246,8 +248,8 @@ class UnbiasedRegressionBTMEstimator:
         
         return results
 
-# Apply Revised Method 2
-print("=== Method 2 (Revised): Unbiased Regression Decomposition ===")
+# Apply Method 2
+print("=== Method 2: Unbiased Regression Decomposition ===")
 estimator_m2 = UnbiasedRegressionBTMEstimator()
 estimator_m2.fit(data_q2_expanded)
 results_m2 = estimator_m2.estimate_btm_solar(data_q2_expanded)
@@ -256,16 +258,15 @@ print("BTM Solar Estimation Summary (Method 2):")
 print(results_m2.groupby('year')['btm_method2'].sum().round(2))
 ```
 
-### Method 3: Time Series Decomposition (Unchanged)
+### Method 3: Time Series Decomposition 
 
-This method remains a useful, independent approach that looks at the diverging trends between solar and non-solar hour demand over time. It is kept as-is from the original notebook to provide a third, complementary perspective.
+This method looks at the diverging trends between solar and non-solar hour demand over time. 
 
 ```{python}
-#| label: method3-unchanged
+#| label: method3
 def estimate_btm_time_series(data):
     """
     Use time series decomposition to identify BTM solar trends.
-    This method is conceptually different and serves as a good third estimate.
     """
     results = data.copy()
     window = 30 * 24  # 30 days
@@ -305,19 +306,19 @@ print("BTM Solar Estimation Summary (Method 3):")
 print(results_m3.groupby('year')['btm_method3'].sum().round(2))
 ```
 
-## Comprehensive BTM Solar Analysis (Revised)
+## Comprehensive BTM Solar Analysis
 
 ### Combine Methods and Calculate True Demand
 
 ```{python}
-#| label: combine-methods-revised
+#| label: combine-methods
 # Combine results from all three methods
 final_results = data_q2_expanded.copy()
 final_results['btm_method1'] = results_m1['btm_method1']
 final_results['btm_method2'] = results_m2['btm_method2']
 final_results['btm_method3'] = results_m3['btm_method3']
 
-# Calculate ensemble estimate (equal weighting for the two primary, improved methods)
+# Calculate ensemble estimate (equal weighting for the two primary methods)
 final_results['btm_ensemble'] = (
     0.45 * final_results['btm_method1'] + 
     0.45 * final_results['btm_method2'] + 
@@ -327,7 +328,7 @@ final_results['btm_ensemble'] = (
 # Calculate final "true demand"
 final_results['true_demand'] = final_results['demand'] + final_results['btm_ensemble']
 
-print("=== BTM Solar Estimation Comparison (Revised Models) ===")
+print("=== BTM Solar Estimation Comparison  ===")
 btm_comparison = final_results.groupby('year')[
     ['btm_method1', 'btm_method2', 'btm_method3', 'btm_ensemble']
 ].sum().round(2)
@@ -408,7 +409,7 @@ fig.update_yaxes(title_text="BTM as % of Grid Solar", secondary_y=True)
 fig.show()
 ```
 
-### Final Question: What is the year-over-year growth in *true* demand?
+### What is the year-over-year growth in *true* demand?
 
 **Answer:** After accounting for the BTM solar effect, we can calculate the growth in Germany's *true* electricity demand. The analysis shows that while observed grid demand has appeared stagnant or even declined in some years, the true underlying demand has been growing consistently. The true demand grew by approximately 1.5% from 2022 to 2023, a period where observed demand appeared to shrink by -0.8%. This highlights the critical importance of this analysis: failing to account for BTM solar gives a misleading picture of energy consumption trends.
 
