@@ -116,50 +116,51 @@ class GFSDataExtractor:
         try:
             logger.info(f"Processing GRIB file: {file_path}")
 
-            # --- FIX: Load variables individually with specific filters ---
+            # --- FIX 2: Load variables individually and merge with override ---
             target_variables = {
-                't2m': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}},
-                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}},
-                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}},
+                't2m': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
+                'u': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'}},
+                'v': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'}},
                 'sp': {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
             }
 
             ds_list = []
-            for var_name, filter_keys in target_variables.items():
+            for var_name, backend_kwargs in target_variables.items():
                 try:
-                    ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=filter_keys)
+                    ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=backend_kwargs)
                     ds_list.append(ds_single)
                 except Exception as e:
-                    logger.warning(f"Could not extract variable using {filter_keys}. Error: {e}")
+                    logger.warning(f"Could not extract variable '{var_name}'. It might be missing in the GRIB file. Error: {e}")
 
-            if not ds_list:
-                logger.error(f"Could not extract any variables from {file_path}")
+            if len(ds_list) < 4:
+                logger.error(f"Failed to extract all required variables from {file_path}. Found {len(ds_list)} out of 4.")
                 return None
 
-            # Merge the datasets
-            ds = xr.merge(ds_list)
+            # Merge the datasets, overriding the conflicting coordinates like 'heightAboveGround'
+            ds = xr.merge(ds_list, compat='override')
             # --- END FIX ---
 
             # Subset for European region
-            # Note: GFS longitude is 0-360. We need to convert our -15 to 345.
-            lon_min_converted = EUROPE_BOUNDS['lon_min'] + 360 if EUROPE_BOUNDS['lon_min'] < 0 else EUROPE_BOUNDS['lon_min']
-            lon_max_converted = EUROPE_BOUNDS['lon_max'] + 360 if EUROPE_BOUNDS['lon_max'] < 0 else EUROPE_BOUNDS['lon_max']
+            # GFS longitude is 0-360. Convert our bounds to match.
+            lon_min_converted = EUROPE_BOUNDS['lon_min'] % 360
+            lon_max_converted = EUROPE_BOUNDS['lon_max'] % 360
+            
+            # Handle crossing the prime meridian if necessary, though not for Europe
+            if lon_min_converted > lon_max_converted:
+                 ds_subset = ds.where((ds.longitude >= lon_min_converted) | (ds.longitude <= lon_max_converted), drop=True)
+            else:
+                ds_subset = ds.sel(longitude=slice(lon_min_converted, lon_max_converted))
 
-            ds_subset = ds.sel(
-                latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']),
-                longitude=slice(lon_min_converted, lon_max_converted)
-            )
+            ds_subset = ds_subset.sel(latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']))
+
 
             # Create a DataFrame from the xarray Dataset
             df = ds_subset.to_dataframe().reset_index()
 
-            # Calculate wind speed
-            wind_speed = np.sqrt(df['u100']**2 + df['v100']**2)
+            # Calculate wind speed using correct variable names from cfgrib
+            wind_speed = np.sqrt(df['u']**2 + df['v']**2)
 
             # Calculate air density (rho) using the ideal gas law: rho = P / (R * T)
-            # P = pressure in Pa (sp is surface pressure in Pa)
-            # T = temperature in Kelvin (t2m is in K)
-            # R = specific gas constant for dry air (approx. 287.058 J/(kg*K))
             R_specific = 287.058
             air_density = df['sp'] / (R_specific * df['t2m'])
 
@@ -173,8 +174,8 @@ class GFSDataExtractor:
                 'forecast_hour': forecast_hour,
                 'lat': df['latitude'],
                 'lon': df['longitude'],
-                'u_wind_100m': df['u100'],
-                'v_wind_100m': df['v100'],
+                'u_wind_100m': df['u'],
+                'v_wind_100m': df['v'],
                 'temp_2m': df['t2m'],
                 'wind_power_density': wind_power_density
             })
