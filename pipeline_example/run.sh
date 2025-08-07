@@ -24,9 +24,9 @@ python3 src/data_extractor.py --date $DATE --cycle $CYCLE
 # Check if the python script succeeded
 if [ $? -eq 0 ]; then
   echo "Python script finished successfully."
-  echo "Running R analysis script..."
-  # Run the R analysis script
-  Rscript analysis.R $DATE $CYCLE
+  echo "Running Python analysis script..."
+  # Run the Python analysis script
+  python3 src/analysis.py $DATE $CYCLE
   if [ $? -eq 0 ]; then
     echo "R script finished successfully."
   else
