@@ -104,7 +104,8 @@ class GFSDataExtractor:
             with open(temp_file, 'wb') as f:
                 f.write(response.content)
                 
-            logger.info(f"Downloaded {len(response.content)} bytes to {temp_file}")
+            #logger.info(f"Downloaded {len(response.content)} bytes to {temp_file}")
+            logger.info(f"Downloaded {len(response.content) / (1024*1024):.2f} MB to{temp_file}")
             return temp_file
             
         except requests.exceptions.RequestException as e:
@@ -150,8 +151,6 @@ class GFSDataExtractor:
                 ds_subset = ds.sel(longitude=slice(lon_min_converted, lon_max_converted))
 
             ds_subset = ds_subset.sel(latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']))
-            import pdb
-            pdb.set_trace()
 
             # Create a DataFrame from the xarray Dataset
             df = ds_subset.to_dataframe().reset_index()
