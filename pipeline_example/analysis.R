@@ -150,7 +150,7 @@ cat("\n--- Country Wind Power Density Rankings ---\\n")
 print(head(country_results, 20))
 
 # Save the rankings to a CSV file
-output_csv_path <- file.path(output_dir, paste0("country_rankings_", date_str, "_", cycle_str, ".csv")
+output_csv_path <- file.path(output_dir, paste0("country_rankings_", date_str, "_", cycle_str, ".csv"))
 write.csv(country_results, output_csv_path, row.names = FALSE)
 
 cat(paste("\nSuccessfully saved country rankings to", output_csv_path, "\n"))
