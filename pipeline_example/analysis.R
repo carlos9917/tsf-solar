@@ -77,34 +77,31 @@ daily_avg_wpd <- gfs_data_daily %>%
 
 
 
-# Convert to a spatial raster object for plotting
-wpd_raster <- terra::rast(daily_avg_wpd, type = "xyz", crs = "EPSG:4326", time = "forecast_day")
-
 # Get European country boundaries for the map overlay
 europe_countries <- ne_countries(scale = "medium", returnclass = "sf", continent = "Europe")
 
 # Create the faceted plot
-wpd_map_faceted <- ggplot() + 
-  geom_raster(data = as.data.frame(wpd_raster, xy = TRUE), aes(x = x, y = y, fill = avg_wpd)) + 
-  geom_sf(data = europe_countries, fill = NA, color = "black", linewidth = 0.2) + 
+wpd_map_faceted <- ggplot() +
+  geom_raster(data = daily_avg_wpd, aes(x = lon, y = lat, fill = avg_wpd)) +
+  geom_sf(data = europe_countries, fill = NA, color = "black", linewidth = 0.2) +
   # Use a better projection for Europe (Lambert Azimuthal Equal-Area)
   coord_sf(crs = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m",
-           xlim = c(2.5e6, 6.5e6), ylim = c(1.5e6, 5.5e6)) + 
+           xlim = c(2.5e6, 6.5e6), ylim = c(1.5e6, 5.5e6)) +
   # Use a more appropriate color scale for wind
   scale_fill_viridis_c(
     name = "Wind Power Density (W/m²)",
     option = "plasma",
     limits = c(0, max(daily_avg_wpd$avg_wpd, na.rm = TRUE)),
     na.value = "transparent"
-  ) + 
+  ) +
   # Create a separate map for each day
-  facet_wrap(~ forecast_day, ncol = 3) + 
+  facet_wrap(~ forecast_day, ncol = 3) +
   labs(
     title = paste("Daily Average Wind Power Density Forecast"),
     subtitle = paste("GFS Run:", date_str, "Cycle", cycle_str),
     x = NULL, y = NULL
-  ) + 
-  theme_minimal() + 
+  ) +
+  theme_minimal() +
   theme(
     legend.position = "bottom",
     legend.key.width = unit(2, "cm"),
