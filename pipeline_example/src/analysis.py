@@ -4,39 +4,13 @@ import sqlite3
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import contextily as cx
-from rasterio.transform import from_origin
-from rasterio.features import rasterize
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import numpy as np
 from shapely.geometry import Point
 import argparse
 import os
 from pathlib import Path
-
-def create_raster_from_df(df, lon_col='lon', lat_col='lat', val_col='avg_wpd'):
-    """Creates a raster-like numpy array and transform from a pandas DataFrame."""
-    # Define the spatial resolution
-    lon_res = df[lon_col].diff().abs().median()
-    lat_res = df[lat_col].diff().abs().median()
-
-    # Create the transform
-    transform = from_origin(
-        df[lon_col].min() - lon_res / 2,
-        df[lat_col].max() + lat_res / 2,
-        lon_res,
-        lat_res
-    )
-
-    # Create the raster grid
-    lon_coords = np.arange(df[lon_col].min(), df[lon_col].max() + lon_res, lon_res)
-    lat_coords = np.arange(df[lat_col].min(), df[lat_col].max() + lat_res, lat_res)
-    lon_indices = np.searchsorted(lon_coords, df[lon_col].values) -1
-    lat_indices = np.searchsorted(lat_coords, df[lat_col].values) -1
-
-    raster = np.full((len(lat_coords), len(lon_coords)), np.nan)
-    raster[lat_indices, lon_indices] = df[val_col].values
-
-    return raster, transform
 
 def main(date_str, cycle_str):
     """Main function to perform analysis."""
@@ -62,36 +36,40 @@ def main(date_str, cycle_str):
 
     # --- 3. Visualize Daily Average Wind Power Density ---
     daily_avg_wpd = gfs_data.groupby(['lat', 'lon', 'forecast_day'])['wind_power_density'].mean().reset_index()
-    daily_avg_wpd = daily_avg_wpd.rename(columns={'lon': 'x', 'lat': 'y'})
 
     # Get European country boundaries
     world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
     europe = world[world.continent == 'Europe']
-    europe = europe.to_crs(epsg=3857) # Web Mercator for plotting
 
     # Create faceted plot
     unique_days = sorted(daily_avg_wpd['forecast_day'].unique())
-    fig, axes = plt.subplots(1, len(unique_days), figsize=(20, 7), sharey=True)
+    # Define the projection
+    proj = ccrs.LambertConformal(central_longitude=10.0, central_latitude=52.0)
+    fig, axes = plt.subplots(1, len(unique_days), figsize=(20, 10), subplot_kw={'projection': proj})
     if len(unique_days) == 1:
         axes = [axes]
 
     for i, day in enumerate(unique_days):
         ax = axes[i]
         day_data = daily_avg_wpd[daily_avg_wpd['forecast_day'] == day]
-        gdf = gpd.GeoDataFrame(day_data, geometry=gpd.points_from_xy(day_data.x, day_data.y), crs="EPSG:4326")
-        gdf = gdf.to_crs(epsg=3857)
 
-        europe.plot(ax=ax, facecolor='none', edgecolor='black', linewidth=0.5)
-        gdf.plot(kind="hexbin", x='x', y='y', C='wind_power_density', cmap='viridis', gridsize=40, ax=ax)
+        ax.set_extent([-10, 40, 35, 70], crs=ccrs.PlateCarree())
+        ax.add_feature(cfeature.COASTLINE)
+        ax.add_feature(cfeature.BORDERS, linestyle=':')
+        ax.add_feature(cfeature.LAND, edgecolor='black')
+        ax.add_feature(cfeature.OCEAN)
+        ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
 
-        cx.add_basemap(ax, source=cx.providers.CartoDB.Positron)
+        # Use tricontourf for unstructured data
+        contour = ax.tricontourf(day_data['lon'], day_data['lat'], day_data['wind_power_density'],
+                                 transform=ccrs.PlateCarree(), cmap='viridis', levels=15)
+
         ax.set_title(f"Forecast Day: {day.strftime('%Y-%m-%d')}")
-        ax.set_xlabel("Longitude")
-        if i == 0:
-            ax.set_ylabel("Latitude")
 
+    # Add a single colorbar
+    fig.colorbar(contour, ax=axes, orientation='horizontal', fraction=0.05, pad=0.1, label="Wind Power Density (W/m²)")
     plt.suptitle(f"Daily Average Wind Power Density (GFS Run: {date_str} Cycle {cycle_str})", fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=[0, 0.05, 1, 0.96])
 
     # Save the map
     output_dir = Path("data/processed/plots")
@@ -109,7 +87,7 @@ def main(date_str, cycle_str):
 
     # Perform spatial join
     countries_gdf = world[['name', 'iso_a3', 'geometry']]
-    joined_gdf = gpd.sjoin(points_gdf, countries_gdf, how="inner", op='within')
+    joined_gdf = gpd.sjoin(points_gdf, countries_gdf, how="inner", predicate='within')
 
     # Calculate average WPD per country
     country_avg = joined_gdf.groupby('name')['wind_power_density'].mean().reset_index()
