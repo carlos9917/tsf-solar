@@ -74,9 +74,15 @@ daily_avg_wpd <- gfs_data_daily %>%
   group_by(lat, lon, forecast_day) %>%
   summarise(avg_wpd = mean(wind_power_density, na.rm = TRUE), .groups = 'drop')
 
+
+
+
 # Convert to a spatial raster object for plotting
 wpd_raster <- terra::rast(daily_avg_wpd, type = "xyz", crs = "EPSG:4326")
-
+print(summary(daily_avg_wpd$avg_wpd))
+print(terra::ext(wpd_raster))
+print(terra::ext(wpd_raster_laea))
+browser()
 # Get European country boundaries for the map overlay
 europe_countries <- ne_countries(scale = "medium", returnclass = "sf", continent = "Europe")
 

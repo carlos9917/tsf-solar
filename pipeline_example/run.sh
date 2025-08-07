@@ -16,7 +16,7 @@ if (( HOUR >= 18 )); then CYCLE="12"; fi
 echo "Running pipeline for date $DATE and cycle $CYCLE"
 
 # Run the Python data extraction script
-python3 src/data_extractor.py --date $DATE --cycle $CYCLE
+#python3 src/data_extractor.py --date $DATE --cycle $CYCLE
 
 # Check if the python script succeeded
 if [ $? -eq 0 ]; then

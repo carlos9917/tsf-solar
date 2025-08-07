@@ -46,6 +46,7 @@ tsf-solar/
 - Python 3.11+
 - Linux/macOS (tested on Linux)
 - Quarto CLI (for rendering notebooks)
+- R version 4.5.1
 
 ### Installation
 
@@ -70,6 +71,14 @@ tsf-solar/
 
 3. **Install Quarto** (if not already installed)
    - Follow instructions at: https://quarto.org/docs/get-started/
+
+
+4. **Install R**
+   A working installation of R is assumed, but if the user wants
+   to isolate the installation, the `renv` library is suggested.
+   Since the only code using R is in the pipeline_example the following
+   instructions should be followed:
+
 
 ### Data Setup
 
