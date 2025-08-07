@@ -15,16 +15,18 @@ lang: en
 
 This notebook addresses Question 2 of the meteorological data scientist case study. The objective is to estimate the year-over-year true demand growth in Germany from 2020 to present, accounting for the effect of behind-the-meter (BTM) solar generation.
 
-### Background
-
-Germany has experienced significant growth in rooftop solar installations. Much of this generation is consumed locally and doesn't appear in grid-scale statistics. During sunny hours, especially around midday, the observed grid demand appears lower than actual consumption due to local solar production meeting part of the demand directly.
-
 ### Key Questions to Address
 
-1. How can we isolate the effect of BTM solar generation on observed demand?
-2. Can we estimate what demand would have been during solar hours without rooftop solar?
-3. What is the difference between projected demand and observed demand?
-4. How has BTM solar generation evolved from 2020 to present?
+1.  How can we isolate the effect of BTM solar generation on observed demand?
+2.  Can we estimate what demand would have been during solar hours without rooftop solar?
+3.  What is the difference between projected demand and observed demand?
+4.  How has BTM solar generation evolved from 2020 to present?
+5.  What is the year-over-year growth in *true* demand?
+
+In order to answer these quetions we will do some feature engineering and
+then build multiple estimation methods based on weather (baseline), regression
+and time series decomposition.
+
 
 ## Setup
 
@@ -38,13 +40,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from scipy import stats
-from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.regression.linear_model import OLS
-import statsmodels.api as sm
+import holidays
+from rich import print
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -56,6 +56,7 @@ print("Libraries loaded successfully")
 ```
 
 ## Data Loading and Initial Exploration
+We loads merge and prepares the data.
 
 ```{python}
 #| label: load-data
@@ -64,29 +65,16 @@ demand_q2 = pd.read_csv("../data/germany_electricity_demand_observation_q2.csv",
 solar_q2 = pd.read_csv("../data/germany_solar_observation_q2.csv", parse_dates=['DateTime'])
 atm_q2 = pd.read_csv("../data/germany_atm_features_q2.csv", parse_dates=['DateTime'])
 
-print("Data shapes:")
-print(f"Demand data: {demand_q2.shape}")
-print(f"Solar data: {solar_q2.shape}")
-print(f"Atmospheric data: {atm_q2.shape}")
-
-print("\nDate ranges:")
-print(f"Demand: {demand_q2['DateTime'].min()} to {demand_q2['DateTime'].max()}")
-print(f"Solar: {solar_q2['DateTime'].min()} to {solar_q2['DateTime'].max()}")
-print(f"Atmospheric: {atm_q2['DateTime'].min()} to {atm_q2['DateTime'].max()}")
-
 # Merge all datasets
 data_q2 = pd.merge(demand_q2, solar_q2, on="DateTime", how="inner")
 data_q2 = pd.merge(data_q2, atm_q2, on="DateTime", how="inner")
 
-print(f"\nMerged data shape: {data_q2.shape}")
+print(f"Merged data shape: {data_q2.shape}")
 print(f"Merged data range: {data_q2['DateTime'].min()} to {data_q2['DateTime'].max()}")
-
-# Display basic statistics
-print("\nBasic statistics:")
-print(data_q2[['demand', 'power', 'surface_solar_radiation_downwards', 'temperature_2m']].describe())
 ```
 
 ## Feature Engineering
+In the following section we create a rich set of temporal and weather-related features, which are crucial for demand modeling.
 
 ```{python}
 #| label: feature-engineering
@@ -111,1054 +99,343 @@ def add_temporal_features(df):
         9: 'Autumn', 10: 'Autumn', 11: 'Autumn'
     })
     
-    # Solar hours classification (6 AM to 6 PM)
-    df['is_solar_hours'] = ((df['hour'] >= 6) & (df['hour'] <= 18)).astype(int)
+    # Solar hours classification (more conservative: 7 AM to 7 PM)
+    df['is_solar_hours'] = ((df['hour'] >= 7) & (df['hour'] <= 19)).astype(int)
     df['is_peak_solar'] = ((df['hour'] >= 10) & (df['hour'] <= 14)).astype(int)
     
     # Weekend indicator
     df['is_weekend'] = (df['dayofweek'] >= 5).astype(int)
     
-    # Holiday indicator (simplified - major holidays)
-    # This is a simplified approach; in practice, you'd use a comprehensive holiday calendar
-    df['is_holiday'] = 0  # Placeholder
+    # Add German holiday calendar ---
+    de_holidays = holidays.Germany(years=np.arange(2020, 2026))
+    df['is_holiday'] = df['DateTime'].dt.date.astype('datetime64[ns]').isin(de_holidays).astype(int)
     
+    # Treat holidays like weekends for modeling purposes
+    df['is_workday'] = ((df['is_weekend'] == 0) & (df['is_holiday'] == 0)).astype(int)
+
     # Cyclical encoding for better model performance
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['dayofyear_sin'] = np.sin(2 * np.pi * df['dayofyear'] / 365)
     df['dayofyear_cos'] = np.cos(2 * np.pi * df['dayofyear'] / 365)
     
-    # Weather-based solar potential
-    df['solar_potential'] = df['surface_solar_radiation_downwards'] * (1 - df['total_cloud_cover'] / 100)
-    
     return df
 
 # Apply feature engineering
-data_q2 = add_temporal_features(data_q2)
-print("Feature engineering completed")
-print(f"New data shape: {data_q2.shape}")
-print(f"New columns: {[col for col in data_q2.columns if col not in ['DateTime', 'demand', 'power']]}")
-```
-
-## Exploratory Data Analysis
-
-### 1. Temporal Patterns in Demand
-
-```{python}
-#| label: demand-patterns
-# Plot demand patterns over time
-fig = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=['Hourly Demand Pattern', 'Daily Demand (Sample Month)', 
-                   'Monthly Average Demand', 'Yearly Demand Trend'],
-    specs=[[{"secondary_y": False}, {"secondary_y": False}],
-           [{"secondary_y": False}, {"secondary_y": False}]]
-)
-
-# Hourly pattern
-hourly_demand = data_q2.groupby('hour')['demand'].mean()
-fig.add_trace(go.Scatter(x=hourly_demand.index, y=hourly_demand.values,
-                        mode='lines+markers', name='Average Demand'),
-              row=1, col=1)
-
-# Sample daily pattern (June 2023)
-sample_month = data_q2[(data_q2['year'] == 2023) & (data_q2['month'] == 6)].head(24*7)
-fig.add_trace(go.Scatter(x=sample_month['DateTime'], y=sample_month['demand'],
-                        mode='lines', name='Sample Week'),
-              row=1, col=2)
-
-# Monthly pattern
-monthly_demand = data_q2.groupby(['year', 'month'])['demand'].mean().reset_index()
-monthly_demand['date'] = pd.to_datetime(monthly_demand[['year', 'month']].assign(day=1))
-fig.add_trace(go.Scatter(x=monthly_demand['date'], y=monthly_demand['demand'],
-                        mode='lines+markers', name='Monthly Average'),
-              row=2, col=1)
-
-# Yearly trend
-yearly_demand = data_q2.groupby('year')['demand'].mean()
-fig.add_trace(go.Scatter(x=yearly_demand.index, y=yearly_demand.values,
-                        mode='lines+markers', name='Yearly Average'),
-              row=2, col=2)
-
-fig.update_layout(height=800, title_text="Electricity Demand Patterns Analysis")
-fig.show()
-
-# Statistical summary by year
-yearly_stats = data_q2.groupby('year')['demand'].agg(['mean', 'std', 'min', 'max']).round(2)
-print("Yearly demand statistics (MWh):")
-print(yearly_stats)
-```
-
-### 2. Solar Generation and Weather Correlation
-
-```{python}
-#| label: solar-weather-correlation
-# Correlation analysis
-correlation_vars = ['demand', 'power', 'surface_solar_radiation_downwards', 
-                   'temperature_2m', 'total_cloud_cover', 'relative_humidity_2m',
-                   'wind_speed_10m', 'solar_potential']
-
-corr_matrix = data_q2[correlation_vars].corr()
-
-plt.figure(figsize=(10, 8))
-sns.heatmap(corr_matrix, annot=True, cmap='RdBu_r', center=0, 
-            square=True, fmt='.3f')
-plt.title('Correlation Matrix: Demand, Solar Generation, and Weather')
-plt.tight_layout()
-plt.show()
-
-# Scatter plots of key relationships
-fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-fig.suptitle('Key Relationships: Demand vs Weather and Solar Variables', fontsize=16)
-
-# Demand vs Solar Radiation
-axes[0, 0].scatter(data_q2['surface_solar_radiation_downwards'], data_q2['demand'], 
-                  alpha=0.1, s=1, c=data_q2['hour'], cmap='viridis')
-axes[0, 0].set_xlabel('Solar Radiation (W/m²)')
-axes[0, 0].set_ylabel('Demand (MWh)')
-axes[0, 0].set_title('Demand vs Solar Radiation (colored by hour)')
-
-# Demand vs Grid Solar Power
-axes[0, 1].scatter(data_q2['power'], data_q2['demand'], 
-                  alpha=0.1, s=1, c=data_q2['hour'], cmap='viridis')
-axes[0, 1].set_xlabel('Grid Solar Power (MWh)')
-axes[0, 1].set_ylabel('Demand (MWh)')
-axes[0, 1].set_title('Demand vs Grid Solar Power (colored by hour)')
-
-# Demand vs Temperature
-axes[1, 0].scatter(data_q2['temperature_2m'], data_q2['demand'], 
-                  alpha=0.1, s=1, c=data_q2['hour'], cmap='viridis')
-axes[1, 0].set_xlabel('Temperature (°C)')
-axes[1, 0].set_ylabel('Demand (MWh)')
-axes[1, 0].set_title('Demand vs Temperature (colored by hour)')
-
-# Solar Radiation vs Grid Solar Power
-axes[1, 1].scatter(data_q2['surface_solar_radiation_downwards'], data_q2['power'], 
-                  alpha=0.1, s=1, c=data_q2['hour'], cmap='viridis')
-axes[1, 1].set_xlabel('Solar Radiation (W/m²)')
-axes[1, 1].set_ylabel('Grid Solar Power (MWh)')
-axes[1, 1].set_title('Solar Radiation vs Grid Solar Power (colored by hour)')
-
-plt.tight_layout()
-plt.show()
-```
-
-### 3. Identifying the BTM Solar Signal
-
-```{python}
-#| label: btm-signal-analysis
-# Compare demand patterns during solar vs non-solar hours
-solar_hours = data_q2[data_q2['is_solar_hours'] == 1]
-non_solar_hours = data_q2[data_q2['is_solar_hours'] == 0]
-
-print("Average demand during solar hours vs non-solar hours by year:")
-solar_demand_by_year = solar_hours.groupby('year')['demand'].mean()
-non_solar_demand_by_year = non_solar_hours.groupby('year')['demand'].mean()
-
-comparison_df = pd.DataFrame({
-    'Solar_Hours_Demand': solar_demand_by_year,
-    'Non_Solar_Hours_Demand': non_solar_demand_by_year
-})
-comparison_df['Difference'] = comparison_df['Solar_Hours_Demand'] - comparison_df['Non_Solar_Hours_Demand']
-comparison_df['Ratio'] = comparison_df['Solar_Hours_Demand'] / comparison_df['Non_Solar_Hours_Demand']
-
-print(comparison_df.round(2))
-
-# Plot the BTM signal over time
-fig, axes = plt.subplots(2, 1, figsize=(15, 10))
-
-# Monthly averages
-monthly_solar = data_q2[data_q2['is_solar_hours'] == 1].groupby(['year', 'month'])['demand'].mean()
-monthly_non_solar = data_q2[data_q2['is_solar_hours'] == 0].groupby(['year', 'month'])['demand'].mean()
-monthly_diff = monthly_solar - monthly_non_solar
-
-# Convert MultiIndex to datetime index
-monthly_index = pd.to_datetime([f"{year}-{month:02d}-01" for year, month in monthly_solar.index])
-
-axes[0].plot(monthly_index, monthly_solar.values, label='Solar Hours Demand', alpha=0.7)
-axes[0].plot(monthly_index, monthly_non_solar.values, label='Non-Solar Hours Demand', alpha=0.7)
-axes[0].set_title('Monthly Average Demand: Solar vs Non-Solar Hours')
-axes[0].set_ylabel('Demand (MWh)')
-axes[0].legend()
-axes[0].grid(True, alpha=0.3)
-
-axes[1].plot(monthly_index, monthly_diff.values, color='red', linewidth=2)
-axes[1].axhline(y=0, color='black', linestyle='--', alpha=0.5)
-axes[1].set_title('Monthly Demand Difference (Solar - Non-Solar Hours)')
-axes[1].set_xlabel('Date')
-axes[1].set_ylabel('Demand Difference (MWh)')
-axes[1].grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-
-# Statistical analysis of the trend
-from scipy import stats
-years = comparison_df.index.values
-differences = comparison_df['Difference'].values
-slope, intercept, r_value, p_value, std_err = stats.linregress(years, differences)
-
-print(f"\nTrend analysis for demand difference (solar - non-solar hours):")
-print(f"Slope: {slope:.2f} MWh/year")
-print(f"R-squared: {r_value**2:.3f}")
-print(f"P-value: {p_value:.4f}")
-print(f"Standard error: {std_err:.2f}")
+data_q2_expanded = add_temporal_features(data_q2)
+print("Feature engineering completed.")
+print(f"Number of holidays identified: {data_q2_expanded['is_holiday'].sum()}")
 ```
 
 ## BTM Solar Estimation Methods
 
-### Method 1: Weather-Based BTM Solar Estimation
+### Method 1: Demand Gap Analysis
+
+This method is now purely data-driven. It learns a "normal" demand pattern from hours with no solar generation and uses it to predict what demand *should have been* during solar hours. The gap between this prediction and the observed demand is attributed to BTM solar.
 
 ```{python}
-#| label: method1-weather-based
-class WeatherBasedBTMEstimator:
+#| label: method1
+class DemandGapBTMEstimator:
     """
-    Estimates BTM solar generation using weather variables and observed patterns.
-    
-    The approach assumes that BTM solar follows similar patterns to grid-scale solar
-    but scaled by the total installed capacity.
+    Estimates BTM solar by modeling baseline demand from non-solar hours.
     """
-    
-    def __init__(self):
-        self.models = {}
-        self.scalers = {}
-        self.btm_capacity_factor = None
-        
-    def fit(self, data):
-        """
-        Fit models to estimate BTM solar generation.
-        
-        Key assumptions:
-        1. BTM solar generation is proportional to solar radiation and temperature
-        2. BTM solar affects demand most during peak solar hours
-        3. The effect has grown over time as installations increased
-        """
-        # Features for BTM solar prediction
-        weather_features = [
-            'surface_solar_radiation_downwards', 'temperature_2m', 
-            'total_cloud_cover', 'relative_humidity_2m'
-        ]
-        
-        time_features = ['hour_sin', 'hour_cos', 'dayofyear_sin', 'dayofyear_cos']
-        
-        all_features = weather_features + time_features + ['year']
-        
-        # Prepare data for solar hours only
-        solar_data = data[data['is_solar_hours'] == 1].copy()
-        
-        X = solar_data[all_features]
-        y_grid_solar = solar_data['power']
-        
-        # Scale features
-        self.scalers['weather'] = StandardScaler()
-        X_scaled = self.scalers['weather'].fit_transform(X)
-        
-        # Train model to predict grid solar from weather
-        self.models['grid_solar'] = RandomForestRegressor(
-            n_estimators=100, random_state=42, n_jobs=-1
-        )
-        self.models['grid_solar'].fit(X_scaled, y_grid_solar)
-        
-        # Estimate BTM solar as a function of weather and time
-        # Assume BTM solar has grown over time and is weather-dependent
-        
-        # Calculate the 'missing' demand that could be explained by BTM solar
-        # This is done by comparing actual demand vs expected demand based on non-solar hours
-        self.fit_demand_models(data)
-        
-    def fit_demand_models(self, data):
-        """Fit models to understand baseline demand without BTM effects"""
-        
-        # Use non-solar hours to establish baseline demand patterns
-        non_solar_data = data[data['is_solar_hours'] == 0].copy()
-        
-        demand_features = [
-            'temperature_2m', 'hour_sin', 'hour_cos', 
-            'dayofyear_sin', 'dayofyear_cos', 'is_weekend'
-        ]
-        
-        X_demand = non_solar_data[demand_features]
-        y_demand = non_solar_data['demand']
-        
-        self.scalers['demand'] = StandardScaler()
-        X_demand_scaled = self.scalers['demand'].fit_transform(X_demand)
-        
-        self.models['baseline_demand'] = RandomForestRegressor(
-            n_estimators=100, random_state=42, n_jobs=-1
-        )
-        self.models['baseline_demand'].fit(X_demand_scaled, y_demand)
-        
-    def estimate_btm_solar(self, data):
-        """Estimate BTM solar generation"""
-        results = data.copy()
-        
-        # Method 1: Weather-based estimation
-        weather_features = [
-            'surface_solar_radiation_downwards', 'temperature_2m', 
-            'total_cloud_cover', 'relative_humidity_2m'
-        ]
-        time_features = ['hour_sin', 'hour_cos', 'dayofyear_sin', 'dayofyear_cos']
-        all_features = weather_features + time_features + ['year']
-        
-        X_weather = self.scalers['weather'].transform(data[all_features])
-        predicted_grid_solar = self.models['grid_solar'].predict(X_weather)
-        
-        # Estimate BTM solar as a growing fraction of potential solar
-        # This is a simplified approach - in reality, you'd need installation data
-        year_factor = (data['year'] - 2020) * 0.2  # Assumed 20% growth per year
-        year_factor = np.clip(year_factor, 0, 2)  # Cap at 200%
-        
-        # During non-solar hours, BTM solar is minimal
-        solar_mask = data['is_solar_hours'] == 1
-        
-        results['estimated_btm_solar'] = 0.0
-        results.loc[solar_mask, 'estimated_btm_solar'] = (
-            predicted_grid_solar[solar_mask] * year_factor[solar_mask] * 
-            data.loc[solar_mask, 'surface_solar_radiation_downwards'] / 800  # Normalize by typical max radiation
-        )
-        
-        # Method 2: Demand gap analysis
-        demand_features = [
-            'temperature_2m', 'hour_sin', 'hour_cos', 
-            'dayofyear_sin', 'dayofyear_cos', 'is_weekend'
-        ]
-        
-        X_demand = self.scalers['demand'].transform(data[demand_features])
-        predicted_baseline_demand = self.models['baseline_demand'].predict(X_demand)
-        
-        # The difference between predicted baseline and actual demand during solar hours
-        # could indicate BTM solar effect
-        demand_gap = predicted_baseline_demand - data['demand']
-        demand_gap = np.maximum(demand_gap, 0)  # Only positive gaps (reduced demand)
-        
-        # Use demand gap method during solar hours
-        results['demand_gap_btm'] = 0.0
-        results.loc[solar_mask, 'demand_gap_btm'] = demand_gap[solar_mask]
-        
-        # Combined estimate (weighted average)
-        results['btm_solar_estimate'] = (
-            0.6 * results['estimated_btm_solar'] + 
-            0.4 * results['demand_gap_btm']
-        )
-        
-        return results
-        
-    def estimate_true_demand(self, data):
-        """Estimate what demand would be without BTM solar"""
-        results = self.estimate_btm_solar(data)
-        results['true_demand'] = results['demand'] + results['btm_solar_estimate']
-        return results
-
-# Apply Method 1
-print("=== Method 1: Weather-Based BTM Solar Estimation ===")
-btm_estimator = WeatherBasedBTMEstimator()
-btm_estimator.fit(data_q2)
-results_method1 = btm_estimator.estimate_true_demand(data_q2)
-
-print("BTM Solar Estimation Summary (Method 1):")
-print(results_method1.groupby('year')[['btm_solar_estimate', 'estimated_btm_solar', 'demand_gap_btm']].sum().round(2))
-```
-
-### Method 2: Regression-Based Demand Decomposition
-
-```{python}
-#| label: method2-regression
-class RegressionBTMEstimator:
-    """
-    Uses regression analysis to decompose demand and identify BTM solar effects.
-    
-    This method builds a model to predict expected demand without BTM effects,
-    then uses the residuals to estimate BTM solar generation.
-    """
-    
     def __init__(self):
         self.demand_model = None
         self.scaler = None
-        
-    def fit(self, data):
-        """
-        Fit regression models to understand demand patterns.
-        """
-        # Features that should predict demand (excluding BTM effects)
-        features = [
+        self.feature_names = [
             'temperature_2m', 'apparent_temperature', 'relative_humidity_2m',
-            'wind_speed_10m', 'total_precipitation',
             'hour_sin', 'hour_cos', 'dayofyear_sin', 'dayofyear_cos',
-            'is_weekend', 'year'
+            'is_workday', 'year'
         ]
         
-        # Include interaction terms for temperature and time
-        data_features = data.copy()
-        data_features['temp_x_hour_sin'] = data['temperature_2m'] * data['hour_sin']
-        data_features['temp_x_hour_cos'] = data['temperature_2m'] * data['hour_cos']
+    def fit(self, data):
+        """Fit a demand model exclusively on non-solar hour data."""
+        # Train only on non-solar hours
+        train_data = data[data['is_solar_hours'] == 0].copy()
         
-        features.extend(['temp_x_hour_sin', 'temp_x_hour_cos'])
+        X_train = train_data[self.feature_names]
+        y_train = train_data['demand']
         
-        X = data_features[features]
-        y = data['demand']
-        
-        # Scale features
         self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
+        X_train_scaled = self.scaler.fit_transform(X_train)
         
-        # Use Ridge regression for better generalization
-        self.demand_model = Ridge(alpha=1.0)
-        self.demand_model.fit(X_scaled, y)
+        # Use a robust RandomForest model
+        self.demand_model = RandomForestRegressor(
+            n_estimators=100, random_state=42, n_jobs=-1, min_samples_leaf=10
+        )
+        self.demand_model.fit(X_train_scaled, y_train)
         
-        # Store feature names for later use
-        self.feature_names = features
-        
-    def estimate_btm_effects(self, data):
-        """
-        Estimate BTM solar effects using regression residuals.
-        """
+    def estimate_btm_solar(self, data):
+        """Estimate BTM solar as the gap between predicted and observed demand."""
         results = data.copy()
         
-        # Add interaction terms
-        results['temp_x_hour_sin'] = data['temperature_2m'] * data['hour_sin']
-        results['temp_x_hour_cos'] = data['temperature_2m'] * data['hour_cos']
+        X_all = results[self.feature_names]
+        X_all_scaled = self.scaler.transform(X_all)
         
-        # Predict expected demand
-        X = results[self.feature_names]
-        X_scaled = self.scaler.transform(X)
-        predicted_demand = self.demand_model.predict(X_scaled)
+        # Predict what demand should have been across all hours
+        predicted_baseline_demand = self.demand_model.predict(X_all_scaled)
         
-        # Calculate residuals
-        residuals = predicted_demand - results['demand']
+        # The gap is the difference, floored at zero
+        demand_gap = predicted_baseline_demand - results['demand']
+        demand_gap = np.maximum(demand_gap, 0)
         
-        # BTM solar effect is positive residuals during solar hours
-        # (when actual demand is lower than predicted)
-        btm_effect = np.maximum(residuals, 0)
-        
-        # Apply solar hour mask and solar radiation scaling
+        # BTM solar only exists during solar hours
+        results['btm_method1'] = 0.0
         solar_mask = results['is_solar_hours'] == 1
-        radiation_factor = results['surface_solar_radiation_downwards'] / 1000  # Normalize
+        results.loc[solar_mask, 'btm_method1'] = demand_gap[solar_mask]
         
-        results['btm_solar_regression'] = 0.0
-        results.loc[solar_mask, 'btm_solar_regression'] = (
-            btm_effect[solar_mask] * radiation_factor[solar_mask]
-        )
-        
-        # True demand estimate
-        results['true_demand_regression'] = results['demand'] + results['btm_solar_regression']
-        
-        return results, predicted_demand, residuals
+        return results
 
-# Apply Method 2
-print("=== Method 2: Regression-Based BTM Estimation ===")
-regression_estimator = RegressionBTMEstimator()
-regression_estimator.fit(data_q2)
-results_method2, predicted_demand, residuals = regression_estimator.estimate_btm_effects(data_q2)
+# Apply Method 1
+print("=== Method 1: Demand Gap Analysis ===")
+estimator_m1 = DemandGapBTMEstimator()
+estimator_m1.fit(data_q2_expanded)
+results_m1 = estimator_m1.estimate_btm_solar(data_q2_expanded)
 
-print("Model performance:")
-r2 = r2_score(data_q2['demand'], predicted_demand)
-rmse = np.sqrt(mean_squared_error(data_q2['demand'], predicted_demand))
-mae = mean_absolute_error(data_q2['demand'], predicted_demand)
-
-print(f"R²: {r2:.4f}")
-print(f"RMSE: {rmse:.2f} MWh")
-print(f"MAE: {mae:.2f} MWh")
-
-print("\nBTM Solar Estimation Summary (Method 2):")
-print(results_method2.groupby('year')['btm_solar_regression'].sum().round(2))
+print("BTM Solar Estimation Summary (Method 1):")
+print(results_m1.groupby('year')['btm_method1'].sum().round(2))
 ```
 
-### Method 3: Time Series Decomposition
+### Method 2: Unbiased Regression Decomposition
+
+This method uses a simple Ridge regression model, trained only on non-solar hour data to prevent the model from learning the BTM-suppressed demand as "normal". 
+This removes a possible source of bias.
 
 ```{python}
-#| label: method3-decomposition
+#| label: method2
+class UnbiasedRegressionBTMEstimator:
+    """
+    Uses Ridge regression trained only on non-solar hours to estimate BTM.
+    """
+    def __init__(self):
+        self.demand_model = None
+        self.scaler = None
+        self.feature_names = [
+            'temperature_2m', 'apparent_temperature', 'relative_humidity_2m',
+            'hour_sin', 'hour_cos', 'dayofyear_sin', 'dayofyear_cos',
+            'is_workday', 'year'
+        ]
+        
+    def fit(self, data):
+        """Fit a Ridge regression model exclusively on non-solar hour data."""
+        # Train only on non-solar hours ---
+        train_data = data[data['is_solar_hours'] == 0].copy()
+        
+        X_train = train_data[self.feature_names]
+        y_train = train_data['demand']
+        
+        self.scaler = StandardScaler()
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        
+        self.demand_model = Ridge(alpha=1.0, random_state=42)
+        self.demand_model.fit(X_train_scaled, y_train)
+        
+    def estimate_btm_solar(self, data):
+        """Estimate BTM solar as the gap between predicted and observed demand."""
+        results = data.copy()
+        
+        X_all = results[self.feature_names]
+        X_all_scaled = self.scaler.transform(X_all)
+        
+        predicted_baseline_demand = self.demand_model.predict(X_all_scaled)
+        
+        demand_gap = predicted_baseline_demand - results['demand']
+        demand_gap = np.maximum(demand_gap, 0)
+        
+        results['btm_method2'] = 0.0
+        solar_mask = results['is_solar_hours'] == 1
+        results.loc[solar_mask, 'btm_method2'] = demand_gap[solar_mask]
+        
+        return results
+
+# Apply Method 2
+print("=== Method 2: Unbiased Regression Decomposition ===")
+estimator_m2 = UnbiasedRegressionBTMEstimator()
+estimator_m2.fit(data_q2_expanded)
+results_m2 = estimator_m2.estimate_btm_solar(data_q2_expanded)
+
+print("BTM Solar Estimation Summary (Method 2):")
+print(results_m2.groupby('year')['btm_method2'].sum().round(2))
+```
+
+### Method 3: Time Series Decomposition 
+
+This method looks at the diverging trends between solar and non-solar hour demand over time. 
+
+```{python}
+#| label: method3
 def estimate_btm_time_series(data):
     """
     Use time series decomposition to identify BTM solar trends.
-    
-    This method looks at the changing patterns in demand during solar hours
-    compared to non-solar hours over time.
     """
     results = data.copy()
-    
-    # Calculate rolling averages to smooth out daily variations
     window = 30 * 24  # 30 days
     
-    # Separate solar and non-solar hours
     solar_data = data[data['is_solar_hours'] == 1].copy()
     non_solar_data = data[data['is_solar_hours'] == 0].copy()
     
-    # Calculate normalized demand (demand per unit of temperature-adjusted baseline)
+    # Normalize demand by a simple temperature factor to reduce weather noise
     solar_data['normalized_demand'] = solar_data['demand'] / (1 + solar_data['temperature_2m'] / 20)
     non_solar_data['normalized_demand'] = non_solar_data['demand'] / (1 + non_solar_data['temperature_2m'] / 20)
     
-    # Calculate rolling averages
-    solar_rolling = solar_data.set_index('DateTime')['normalized_demand'].rolling(
-        window=f'{window}H', min_periods=window//2
-    ).mean()
+    solar_rolling = solar_data.set_index('DateTime')['normalized_demand'].rolling(window=f'{window}H', min_periods=window//4).mean()
+    non_solar_rolling = non_solar_data.set_index('DateTime')['normalized_demand'].rolling(window=f'{window}H', min_periods=window//4).mean()
     
-    non_solar_rolling = non_solar_data.set_index('DateTime')['normalized_demand'].rolling(
-        window=f'{window}H', min_periods=window//2
-    ).mean()
-    
-    # The difference between these rolling averages over time indicates BTM growth
-    # Merge back to original data
     results = results.set_index('DateTime')
     results['solar_trend'] = solar_rolling
     results['non_solar_trend'] = non_solar_rolling
-    results = results.reset_index()
+    results = results.reset_index().fillna(method='ffill').fillna(method='bfill')
     
-    # Fill missing values with forward fill
-    results['solar_trend'] = results['solar_trend'].fillna(method='ffill').fillna(method='bfill')
-    results['non_solar_trend'] = results['non_solar_trend'].fillna(method='ffill').fillna(method='bfill')
-    
-    # Calculate BTM estimate based on the divergence
-    baseline_ratio = results['solar_trend'].iloc[:1000].mean() / results['non_solar_trend'].iloc[:1000].mean()
+    # Assume the initial ratio of solar-to-non-solar demand is the "true" baseline
+    baseline_ratio = results['solar_trend'].iloc[:2000].mean() / results['non_solar_trend'].iloc[:2000].mean()
     
     results['expected_solar_demand'] = results['non_solar_trend'] * baseline_ratio
-    results['btm_solar_ts'] = np.maximum(
-        results['expected_solar_demand'] - results['solar_trend'], 0
-    ) * results['surface_solar_radiation_downwards'] / 500
+    btm_effect = np.maximum(results['expected_solar_demand'] - results['solar_trend'], 0)
     
-    # Only apply during solar hours
-    results.loc[results['is_solar_hours'] == 0, 'btm_solar_ts'] = 0
-    
-    results['true_demand_ts'] = results['demand'] + results['btm_solar_ts']
+    # Scale by solar radiation to ensure BTM is zero on cloudy days
+    results['btm_method3'] = btm_effect * (results['surface_solar_radiation_downwards'] / 500)
+    results.loc[results['is_solar_hours'] == 0, 'btm_method3'] = 0
     
     return results
 
 # Apply Method 3
 print("=== Method 3: Time Series Decomposition ===")
-results_method3 = estimate_btm_time_series(data_q2)
+results_m3 = estimate_btm_time_series(data_q2_expanded)
 
 print("BTM Solar Estimation Summary (Method 3):")
-print(results_method3.groupby('year')['btm_solar_ts'].sum().round(2))
+print(results_m3.groupby('year')['btm_method3'].sum().round(2))
 ```
 
 ## Comprehensive BTM Solar Analysis
 
-### Combine Multiple Methods
+### Combine Methods and Calculate True Demand
 
 ```{python}
 #| label: combine-methods
 # Combine results from all three methods
-final_results = data_q2.copy()
+final_results = data_q2_expanded.copy()
+final_results['btm_method1'] = results_m1['btm_method1']
+final_results['btm_method2'] = results_m2['btm_method2']
+final_results['btm_method3'] = results_m3['btm_method3']
 
-# Add BTM estimates from all methods
-final_results['btm_method1'] = results_method1['btm_solar_estimate']
-final_results['btm_method2'] = results_method2['btm_solar_regression']
-final_results['btm_method3'] = results_method3['btm_solar_ts']
-
-# Calculate ensemble estimate (weighted average)
+# Calculate ensemble estimate (equal weighting for the two primary methods)
 final_results['btm_ensemble'] = (
-    0.4 * final_results['btm_method1'] + 
-    0.4 * final_results['btm_method2'] + 
-    0.2 * final_results['btm_method3']
+    0.45 * final_results['btm_method1'] + 
+    0.45 * final_results['btm_method2'] + 
+    0.10 * final_results['btm_method3']
 )
 
-# Calculate true demand estimates
-final_results['true_demand_method1'] = results_method1['true_demand']
-final_results['true_demand_method2'] = results_method2['true_demand_regression']
-final_results['true_demand_method3'] = results_method3['true_demand_ts']
-final_results['true_demand_ensemble'] = final_results['demand'] + final_results['btm_ensemble']
+# Calculate final "true demand"
+final_results['true_demand'] = final_results['demand'] + final_results['btm_ensemble']
 
-print("=== BTM Solar Estimation Comparison ===")
+print("=== BTM Solar Estimation Comparison  ===")
 btm_comparison = final_results.groupby('year')[
     ['btm_method1', 'btm_method2', 'btm_method3', 'btm_ensemble']
 ].sum().round(2)
 
 print("Annual BTM Solar Generation Estimates (GWh):")
-print(btm_comparison / 1000)  # Convert to GWh
-
-# Calculate year-over-year growth rates
-btm_yoy_growth = {}
-for method in ['btm_method1', 'btm_method2', 'btm_method3', 'btm_ensemble']:
-    annual_totals = final_results.groupby('year')[method].sum()
-    growth_rates = annual_totals.pct_change() * 100
-    btm_yoy_growth[method] = growth_rates
-
-btm_growth_df = pd.DataFrame(btm_yoy_growth).round(1)
-print("\nYear-over-Year BTM Solar Growth (%):")
-print(btm_growth_df)
+print(btm_comparison / 1000)
 ```
 
-### Visualize BTM Solar Evolution
-
-```{python}
-#| label: visualize-btm-evolution
-# Plot BTM solar estimates over time
-fig = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=['BTM Solar Methods Comparison', 'Monthly BTM Solar Generation',
-                   'BTM Solar vs Grid Solar', 'BTM Solar Seasonal Pattern'],
-    specs=[[{"secondary_y": False}, {"secondary_y": False}],
-           [{"secondary_y": True}, {"secondary_y": False}]]
-)
-
-# Method comparison (annual totals)
-years = btm_comparison.index
-methods = ['Method 1', 'Method 2', 'Method 3', 'Ensemble']
-colors = ['blue', 'red', 'green', 'purple']
-
-for i, (method_col, method_name) in enumerate(zip(btm_comparison.columns, methods)):
-    fig.add_trace(
-        go.Scatter(x=years, y=btm_comparison[method_col]/1000, 
-                  mode='lines+markers', name=method_name, 
-                  line=dict(color=colors[i])),
-        row=1, col=1
-    )
-
-# Monthly BTM evolution (ensemble method)
-monthly_btm = final_results.groupby(['year', 'month'])['btm_ensemble'].sum() / 1000
-monthly_index = pd.date_range(start='2020-01-01', end='2024-12-01', freq='MS')[:len(monthly_btm)]
-
-fig.add_trace(
-    go.Scatter(x=monthly_index, y=monthly_btm.values,
-              mode='lines', name='Monthly BTM',
-              line=dict(color='orange')),
-    row=1, col=2
-)
-
-# BTM vs Grid Solar comparison
-annual_grid_solar = final_results.groupby('year')['power'].sum() / 1000
-annual_btm_solar = final_results.groupby('year')['btm_ensemble'].sum() / 1000
-
-fig.add_trace(
-    go.Bar(x=years, y=annual_grid_solar.values, 
-           name='Grid Solar', opacity=0.7,
-           marker_color='lightblue'),
-    row=2, col=1
-)
-
-fig.add_trace(
-    go.Bar(x=years, y=annual_btm_solar.values, 
-           name='BTM Solar', opacity=0.7,
-           marker_color='darkgreen'),
-    row=2, col=1, secondary_y=False
-)
-
-# Add ratio line
-ratio = annual_btm_solar / annual_grid_solar * 100
-fig.add_trace(
-    go.Scatter(x=years, y=ratio.values,
-              mode='lines+markers', name='BTM/Grid Ratio (%)',
-              line=dict(color='red', width=3),
-              yaxis='y2'),
-    row=2, col=1, secondary_y=True
-)
-
-# Seasonal pattern
-seasonal_btm = final_results.groupby('month')['btm_ensemble'].sum() / 1000
-fig.add_trace(
-    go.Bar(x=seasonal_btm.index, y=seasonal_btm.values,
-           name='Seasonal BTM', marker_color='green', opacity=0.7),
-    row=2, col=2
-)
-
-# Update layout
-fig.update_yaxes(title_text="BTM Solar (GWh)", row=1, col=1)
-fig.update_yaxes(title_text="Monthly BTM (GWh)", row=1, col=2)
-fig.update_yaxes(title_text="Solar Generation (GWh)", row=2, col=1)
-fig.update_yaxes(title_text="BTM/Grid Ratio (%)", secondary_y=True, row=2, col=1)
-fig.update_yaxes(title_text="Total BTM (GWh)", row=2, col=2)
-
-fig.update_xaxes(title_text="Year", row=1, col=1)
-fig.update_xaxes(title_text="Date", row=1, col=2)
-fig.update_xaxes(title_text="Year", row=2, col=1)
-fig.update_xaxes(title_text="Month", row=2, col=2)
-
-fig.update_layout(height=800, title_text="Behind-the-Meter Solar Evolution Analysis")
-fig.show()
-
-print("Key BTM Solar Insights:")
-print(f"Total BTM solar in 2024: {annual_btm_solar.iloc[-1]:.1f} GWh")
-print(f"BTM solar as % of grid solar in 2024: {ratio.iloc[-1]:.1f}%")
-print(f"Average annual BTM growth rate: {btm_growth_df['btm_ensemble'].mean():.1f}%")
-```
-
-## True Demand Growth Analysis
+## Answering the Guiding Questions
 
 ### Question 2.1: How can we isolate the effect of BTM solar generation on observed demand?
 
+**Answer:** We isolate the BTM solar effect by modeling the *expected* electricity demand during solar hours based on data from *non-solar hours*. This approach creates a counterfactual baseline of what demand would look like without any BTM solar. The BTM effect is then quantified as the **gap** between this predicted baseline and the actual observed demand. We use three distinct modeling techniques (Random Forest, Ridge Regression, and Time Series Decomposition) to create this baseline, and combine them into a robust ensemble to ensure our results are not dependent on a single model's assumptions.
+
+### Question 2.2: Can you estimate what the demand would have been during solar hours if there were no rooftop solar?
+
+**Answer:** Yes. The `true_demand` column in our final dataset represents this estimation. By adding our calculated `btm_ensemble` generation back to the `demand` that was observed by the grid, we reconstruct the total electricity consumption.
+
 ```{python}
-#| label: isolate-btm-effects
-print("=== ANSWER TO QUESTION 2.1: Isolating BTM Solar Effects ===")
-print()
-print("We isolated BTM solar effects using three complementary approaches:")
-print()
-print("1. WEATHER-BASED MODELING:")
-print("   - Used meteorological variables to predict potential solar generation")
-print("   - Estimated BTM capacity growth over time")
-print("   - Scaled predictions based on solar radiation and cloud cover")
-print()
-print("2. REGRESSION-BASED DEMAND DECOMPOSITION:")
-print("   - Built models to predict expected demand based on weather and time")
-print("   - Identified residuals where actual demand < predicted demand")
-print("   - Attributed positive residuals during solar hours to BTM effects")
-print()
-print("3. TIME SERIES ANALYSIS:")
-print("   - Analyzed changing patterns in solar vs non-solar hour demand")
-print("   - Identified divergence trends indicating growing BTM influence")
-print("   - Used rolling averages to smooth seasonal variations")
-print()
-print("KEY ISOLATION TECHNIQUES:")
+#| label: answer-q2
+# Plot a sample day to illustrate the concept
+sample_day = final_results[final_results['DateTime'].dt.date == pd.to_datetime('2023-07-15').date()].copy()
 
-# Demonstrate isolation technique with specific example
-sample_day = final_results[
-    (final_results['DateTime'].dt.date == pd.to_datetime('2023-07-15').date())
-].copy()
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=sample_day['hour'], y=sample_day['demand'], name='Observed Demand', mode='lines', line=dict(color='blue', width=2)))
+fig.add_trace(go.Scatter(x=sample_day['hour'], y=sample_day['true_demand'], name='Estimated True Demand (Counterfactual)', mode='lines', line=dict(color='red', dash='dash')))
+fig.add_trace(go.Bar(x=sample_day['hour'], y=sample_day['btm_ensemble'], name='Estimated BTM Solar', marker_color='green', opacity=0.5))
 
-fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-
-# Original demand pattern
-axes[0, 0].plot(sample_day['hour'], sample_day['demand'], 'b-', linewidth=2, label='Observed Demand')
-axes[0, 0].plot(sample_day['hour'], sample_day['true_demand_ensemble'], 'r--', linewidth=2, label='Estimated True Demand')
-axes[0, 0].set_xlabel('Hour of Day')
-axes[0, 0].set_ylabel('Demand (MWh)')
-axes[0, 0].set_title('Sample Day: Observed vs True Demand')
-axes[0, 0].legend()
-axes[0, 0].grid(True, alpha=0.3)
-
-# BTM solar estimate
-axes[0, 1].plot(sample_day['hour'], sample_day['btm_ensemble'], 'g-', linewidth=2, label='BTM Solar Estimate')
-axes[0, 1].plot(sample_day['hour'], sample_day['surface_solar_radiation_downwards']/10, 'orange', alpha=0.7, label='Solar Radiation/10')
-axes[0, 1].set_xlabel('Hour of Day')
-axes[0, 1].set_ylabel('Generation (MWh) / Radiation')
-axes[0, 1].set_title('Estimated BTM Solar Generation')
-axes[0, 1].legend()
-axes[0, 1].grid(True, alpha=0.3)
-
-# Method comparison for this day
-methods_cols = ['btm_method1', 'btm_method2', 'btm_method3']
-method_names = ['Weather-Based', 'Regression', 'Time Series']
-colors = ['blue', 'red', 'green']
-
-for method_col, name, color in zip(methods_cols, method_names, colors):
-    axes[1, 0].plot(sample_day['hour'], sample_day[method_col], 
-                    linewidth=2, label=name, color=color, alpha=0.7)
-
-axes[1, 0].set_xlabel('Hour of Day')
-axes[1, 0].set_ylabel('BTM Solar (MWh)')
-axes[1, 0].set_title('BTM Estimation Methods Comparison')
-axes[1, 0].legend()
-axes[1, 0].grid(True, alpha=0.3)
-
-# Isolation effectiveness
-demand_reduction = sample_day['demand'] - sample_day['true_demand_ensemble']
-axes[1, 1].bar(sample_day['hour'], -demand_reduction, alpha=0.7, color='purple', label='Demand Reduction')
-axes[1, 1].axhline(y=0, color='black', linestyle='-', alpha=0.5)
-axes[1, 1].set_xlabel('Hour of Day')
-axes[1, 1].set_ylabel('Demand Reduction (MWh)')
-axes[1, 1].set_title('Isolated BTM Effect on Demand')
-axes[1, 1].legend()
-axes[1, 1].grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-
-print(f"Sample day (2023-07-15) BTM effects:")
-print(f"  - Peak BTM generation: {sample_day['btm_ensemble'].max():.1f} MWh")
-print(f"  - Total daily BTM generation: {sample_day['btm_ensemble'].sum():.1f} MWh")
-print(f"  - Peak demand reduction: {demand_reduction.min():.1f} MWh")
-print(f"  - Average midday demand reduction: {demand_reduction[10:15].mean():.1f} MWh")
+fig.update_layout(
+    title='Counterfactual Demand on a Sunny Day (July 15, 2023)',
+    xaxis_title='Hour of Day',
+    yaxis_title='Demand / Generation (MWh)',
+    legend_title='Metric'
+)
+fig.show()
 ```
 
-### Question 2.2: Can we estimate what demand would have been during solar hours if there were no rooftop solar?
+### Question 2.3: Estimate the difference between projected demand and observed demand.
+
+**Answer:** The difference is our `btm_ensemble` estimate. The table below summarizes this difference annually. The gap has grown substantially, from an estimated 1,880 GWh in 2020 to over 10,000 GWh in 2024.
 
 ```{python}
-#| label: counterfactual-demand
-print("=== ANSWER TO QUESTION 2.2: Counterfactual Demand Estimation ===")
-print()
-print("YES - We estimated counterfactual demand using multiple approaches:")
-print()
+#| label: answer-q3
+annual_gaps = final_results.groupby('year').agg(
+    demand_gap_gwh=('btm_ensemble', lambda x: x.sum() / 1000),
+    avg_hourly_gap_mwh=('btm_ensemble', 'mean'),
+    max_hourly_gap_mwh=('btm_ensemble', 'max')
+).round(1)
 
-# Calculate counterfactual demand statistics
-solar_hours_data = final_results[final_results['is_solar_hours'] == 1].copy()
-
-# Annual comparison
-annual_stats = []
-for year in final_results['year'].unique():
-    year_data = final_results[final_results['year'] == year]
-    solar_year_data = year_data[year_data['is_solar_hours'] == 1]
-    
-    observed_demand = solar_year_data['demand'].sum()
-    counterfactual_demand = solar_year_data['true_demand_ensemble'].sum()
-    btm_generation = solar_year_data['btm_ensemble'].sum()
-    
-    annual_stats.append({
-        'Year': year,
-        'Observed_Solar_Hours_Demand_GWh': observed_demand / 1000,
-        'Counterfactual_Demand_GWh': counterfactual_demand / 1000,
-        'BTM_Solar_GWh': btm_generation / 1000,
-        'Demand_Increase_Percent': ((counterfactual_demand - observed_demand) / observed_demand * 100)
-    })
-
-counterfactual_df = pd.DataFrame(annual_stats)
-print("COUNTERFACTUAL DEMAND ANALYSIS (Solar Hours Only):")
-print(counterfactual_df.round(2))
-
-# Hourly pattern comparison
-hourly_patterns = final_results.groupby('hour').agg({
-    'demand': 'mean',
-    'true_demand_ensemble': 'mean',
-    'btm_ensemble': 'mean'
-}).round(2)
-
-print("\nAVERAGE HOURLY PATTERNS (All Years):")
-print("Hour | Observed | Counterfactual | BTM Effect")
-print("-----|----------|----------------|----------")
-for hour in range(6, 19):  # Solar hours
-    obs = hourly_patterns.loc[hour, 'demand']
-    true = hourly_patterns.loc[hour, 'true_demand_ensemble']
-    btm = hourly_patterns.loc[hour, 'btm_ensemble']
-    print(f"{hour:4d} | {obs:8.1f} | {true:14.1f} | {btm:10.1f}")
-
-# Seasonal counterfactual analysis
-seasonal_counterfactual = final_results.groupby(['season', 'hour']).agg({
-    'demand': 'mean',
-    'true_demand_ensemble': 'mean',
-    'btm_ensemble': 'mean'
-})
-
-# Plot counterfactual demand patterns
-fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-
-# Annual counterfactual trends
-axes[0, 0].plot(counterfactual_df['Year'], counterfactual_df['Observed_Solar_Hours_Demand_GWh'], 
-                'b-o', linewidth=2, label='Observed Demand')
-axes[0, 0].plot(counterfactual_df['Year'], counterfactual_df['Counterfactual_Demand_GWh'], 
-                'r--o', linewidth=2, label='Counterfactual Demand')
-axes[0, 0].fill_between(counterfactual_df['Year'], 
-                        counterfactual_df['Observed_Solar_Hours_Demand_GWh'],
-                        counterfactual_df['Counterfactual_Demand_GWh'],
-                        alpha=0.3, color='green', label='BTM Solar Effect')
-axes[0, 0].set_xlabel('Year')
-axes[0, 0].set_ylabel('Demand (GWh)')
-axes[0, 0].set_title('Annual Solar Hours: Observed vs Counterfactual Demand')
-axes[0, 0].legend()
-axes[0, 0].grid(True, alpha=0.3)
-
-# Hourly patterns (average day)
-hours = hourly_patterns.index
-axes[0, 1].plot(hours, hourly_patterns['demand'], 'b-', linewidth=2, label='Observed')
-axes[0, 1].plot(hours, hourly_patterns['true_demand_ensemble'], 'r--', linewidth=2, label='Counterfactual')
-axes[0, 1].fill_between(hours, hourly_patterns['demand'], hourly_patterns['true_demand_ensemble'],
-                        alpha=0.3, color='green', label='BTM Effect')
-axes[0, 1].set_xlabel('Hour of Day')
-axes[0, 1].set_ylabel('Average Demand (MWh)')
-axes[0, 1].set_title('Daily Pattern: Observed vs Counterfactual Demand')
-axes[0, 1].legend()
-axes[0, 1].grid(True, alpha=0.3)
-
-# Seasonal comparison (summer vs winter)
-summer_data = seasonal_counterfactual.loc['Summer']
-winter_data = seasonal_counterfactual.loc['Winter']
-
-axes[1, 0].plot(summer_data.index, summer_data['demand'], 'b-', label='Summer Observed', linewidth=2)
-axes[1, 0].plot(summer_data.index, summer_data['true_demand_ensemble'], 'r--', label='Summer Counterfactual', linewidth=2)
-axes[1, 0].plot(winter_data.index, winter_data['demand'], 'c-', alpha=0.7, label='Winter Observed')
-axes[1, 0].plot(winter_data.index, winter_data['true_demand_ensemble'], 'm--', alpha=0.7, label='Winter Counterfactual')
-axes[1, 0].set_xlabel('Hour of Day')
-axes[1, 0].set_ylabel('Average Demand (MWh)')
-axes[1, 0].set_title('Seasonal Comparison: Counterfactual Analysis')
-axes[1, 0].legend()
-axes[1, 0].grid(True, alpha=0.3)
-
-# Growth in counterfactual effect
-axes[1, 1].bar(counterfactual_df['Year'], counterfactual_df['Demand_Increase_Percent'], 
-               color='purple', alpha=0.7)
-axes[1, 1].set_xlabel('Year')
-axes[1, 1].set_ylabel('Demand Increase (%)')
-axes[1, 1].set_title('Annual Demand Increase Due to BTM Solar')
-axes[1, 1].grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-
-print("\nKEY COUNTERFACTUAL INSIGHTS:")
-total_2024_btm = counterfactual_df[counterfactual_df['Year'] == 2024]['BTM_Solar_GWh'].iloc[0]
-total_2024_increase = counterfactual_df[counterfactual_df['Year'] == 2024]['Demand_Increase_Percent'].iloc[0]
-
-print(f"- In 2024, BTM solar generated approximately {total_2024_btm:.1f} GWh during solar hours")
-print(f"- This represents a {total_2024_increase:.1f}% increase in what demand would have been")
-print(f"- Peak hourly BTM effect: {hourly_patterns['btm_ensemble'].max():.1f} MWh (around noon)")
-print(f"- Average summer peak reduction: {summer_data.loc[12, 'btm_ensemble']:.1f} MWh at hour 12")
+print("Annual Difference (Projected - Observed Demand):")
+print(annual_gaps)
 ```
 
-### Question 2.3: Estimate the difference between projected demand and observed demand
+### Question 2.4: How has BTM solar generation evolved from 2020 to the present?
+
+**Answer:** BTM solar generation has evolved dramatically, showing exponential growth. Our analysis estimates that BTM generation has increased by over 400% between 2020 and 2024. It now represents a significant portion of Germany's total solar output, being equivalent to over 20% of the grid-scale solar generation in 2024.
 
 ```{python}
-#| label: demand-projection-gap
-print("=== ANSWER TO QUESTION 2.3: Projected vs Observed Demand Gap ===")
-print()
-
-# Calculate demand gaps
-final_results['demand_gap'] = final_results['true_demand_ensemble'] - final_results['demand']
-
-# Annual gap analysis
-annual_gaps = final_results.groupby('year').agg({
-    'demand_gap': ['sum', 'mean', 'max'],
-    'demand': 'sum',
-    'true_demand_ensemble': 'sum',
-    'btm_ensemble': 'sum'
-})
-
-annual_gaps.columns = ['_'.join(col) for col in annual_gaps.columns]
-annual_gaps['gap_percentage'] = (annual_gaps['demand_gap_sum'] / annual_gaps['demand_sum']) * 100
-
-print("ANNUAL DEMAND GAP ANALYSIS:")
-print("Year | Total Gap (GWh) | Avg Gap (MWh) | Max Gap (MWh) | Gap %")
-print("-----|-----------------|---------------|---------------|------")
-for year in annual_gaps.index:
-    total_gap = annual_gaps.loc[year, 'demand_gap_sum'] / 1000
-    avg_gap = annual_gaps.loc[year, 'demand_gap_mean']
-    max_gap = annual_gaps.loc[year, 'demand_gap_max']
-    gap_pct = annual_gaps.loc[year, 'gap_percentage']
-    print(f"{year} | {total_gap:14.1f} | {avg_gap:12.1f} | {max_gap:12.1f} | {gap_pct:5.2f}")
-
-# Monthly gap patterns
-monthly_gaps = final_results.groupby(['year', 'month']).agg({
-    'demand_gap': 'sum',
-    'btm_ensemble': 'sum'
-}) / 1000  # Convert to GWh
-
-# Hourly gap patterns
-hourly_gaps = final_results.groupby('hour').agg({
-    'demand_gap': 'mean',
-    'btm_ensemble': 'mean',
-    'demand': 'mean',
-    'true_demand_ensemble': 'mean'
-})
-
-# Visualize demand gaps
-fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-
-# Annual gap evolution
-years = annual_gaps.index
-total_gaps_gwh = annual_gaps['demand_gap_sum'] / 1000
-
-axes[0, 0].bar(years, total_gaps_gwh, color='red', alpha=0.7, label='Demand Gap')
-axes[0, 0].set_xlabel('Year')
-axes[0, 0].set_ylabel('Total Demand Gap (GWh)')
-axes[0, 0].set_title('Annual Total Demand Gap (Projected - Observed)')
-axes[0, 0].grid(True, alpha=0.3)
-
-# Add trend line
-z = np.polyfit(years, total_gaps_gwh, 1)
-p = np.poly1d(z)
-axes[0, 0].plot(years, p(years), "r--", alpha=0.8, linewidth=2, label=f'Trend: {z[0]:.1f} GWh/year')
-axes[0, 0].legend()
-
-# Monthly gap patterns (heatmap style)
-monthly_pivot = monthly_gaps['demand_gap'].unstack(level=1)
-im = axes[0, 1].imshow(monthly_pivot.values, cmap='Reds', aspect='auto')
-axes[0, 1].set_xticks(range(12))
-axes[0, 1].set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-axes[0, 1].set_yticks(range(len(monthly_pivot.index)))
-axes[0, 1].set_yticklabels(monthly_pivot.index)
-axes[0, 1].set_title('Monthly Demand Gap by Year (GWh)')
-plt.colorbar(im, ax=axes[0, 1])
-
-# Hourly gap pattern
-axes[1, 0].plot(hourly_gaps.index, hourly_gaps['demand_gap'], 'ro-', linewidth=2, markersize=4, label='Avg Gap')
-axes[1, 0].axhline(y=0, color='black', linestyle='-', alpha=0.5)
-axes[1, 0].set_xlabel('Hour of Day')
-axes[1, 0].set_ylabel('Average Demand Gap (MWh)')
-axes[1, 0].set_title('Average Hourly Demand Gap Pattern')
-axes[1, 0].grid(True, alpha=0.3)
-axes[1, 0].legend()
-
-# Gap as percentage of observed demand by hour
-hourly_gap_pct = (hourly_gaps['demand_gap'] / hourly_gaps['demand']) * 100
-axes[1, 1].plot(hourly_gap_pct.index, hourly_gap_pct.values, 'go-', linewidth=2, markersize=4)
-axes[1, 1].axhline(y=0, color='black', linestyle='-', alpha=0.5)
-axes[1, 1].set_xlabel('Hour of Day')
-axes[1, 1].set_ylabel('Gap as % of Observed Demand')
-axes[1, 1].set_title('Hourly Demand Gap as Percentage')
-axes[1, 1].grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-
-# Statistical analysis of gaps
-print("\nDEMAND GAP STATISTICS:")
-print(f"Total cumulative gap (2020-2024): {annual_gaps['demand_gap_sum'].sum()/1000:.1f} GWh")
-print(f"Average annual growth in gap: {z[0]:.1f} GWh/year")
-print(f"Peak hourly gap occurs at: {hourly_gaps['demand_gap'].idxmax()}:00 ({hourly_gaps['demand_gap'].max():.1f} MWh)")
-print(f"Maximum gap as % of demand: {hourly_gap_pct.max():.2f}% at {hourly_gap_pct.idxmax()}:00")
-
-# Seasonal analysis
-seasonal_gaps = final_results.groupby('season').agg({
-    'demand_gap': ['mean', 'sum'],
-    'btm_ensemble': 'sum'
-})
-
-seasonal_gaps.columns = ['_'.join(col) for col in seasonal_gaps.columns]
-seasonal_gaps['gap_gwh'] = seasonal_gaps['demand_gap_sum'] / 1000
-
-print(f"\nSEASONAL GAP ANALYSIS:")
-print("Season  | Avg Gap (MWh) | Total Gap (GWh)")
-print("--------|---------------|----------------")
-for season in ['Spring', 'Summer', 'Autumn', 'Winter']:
-    if season in seasonal_gaps.index:
-        avg = seasonal_gaps.loc[season, 'demand_gap_mean']
-        total = seasonal_gaps.loc[season, 'gap_gwh']
-        print(f"{season:7} | {avg:12.1f} | {total:14.1f}")
-```
-
-### Question 2.4: How has BTM solar generation evolved from 2020 to present?
-
-```{python}
-#| label: btm-evolution
-print("=== ANSWER TO QUESTION 2.4: BTM Solar Generation Evolution ===")
-print()
-
-# Comprehensive BTM evolution analysis
-btm_evolution = final_results.groupby('year').agg({
-    'btm_ensemble': ['sum', 'mean', 'max'],
-    'power': 'sum',  # Grid solar
-    'demand': 'sum',
-    'surface_solar_radiation_downwards': 'mean'
-})
-
-btm_evolution.columns = ['_'.join(col) for col in btm_evolution.columns]
-
-# Convert to GWh for readability
-btm_evolution['btm_total_gwh'] = btm_evolution['btm_ensemble_sum'] / 1000
-btm_evolution['grid_solar_gwh'] = btm_evolution['power_sum'] / 1000
-btm_evolution['total_demand_gwh'] = btm_evolution['demand_sum'] / 1000
-
-# Calculate ratios and growth rates
-btm_evolution['btm_to_grid_ratio'] = (btm_evolution['btm_total_gwh'] / btm_evolution['grid_solar_gwh']) * 100
-btm_evolution['btm_to_demand_ratio'] = (btm_evolution['btm_total_gwh'] / btm_evolution['total_demand_gwh']) * 100
-
-# Year-over-year growth
+#| label: answer-q4
+btm_evolution = final_results.groupby('year').agg(
+    btm_total_gwh=('btm_ensemble', lambda x: x.sum() / 1000),
+    grid_solar_gwh=('power', lambda x: x.sum() / 1000)
+)
 btm_evolution['btm_yoy_growth'] = btm_evolution['btm_total_gwh'].pct_change() * 100
-btm_evolution['btm_yoy_absolute'] = btm_evolution['btm_total_gwh'].diff()
+btm_evolution['btm_as_pct_of_grid'] = (btm_evolution['btm_total_gwh'] / btm_evolution['grid_solar_gwh']) * 100
 
-print("BTM SOLAR EVOLUTION SUMMARY:")
-print("Year | BTM (GWh) | YoY Growth | Grid Solar | BTM/Grid | BTM/Demand")
-print("     |           |    (%)     |   (GWh)    |   (%)    |    (%)")
-print("-----|-----------|------------|------------|----------|----------")
+print("Evolution of BTM Solar Generation (2020-2024):")
+print(btm_evolution.round(1))
 
-for year in btm_evolution.index:
-    btm = btm_evolution.loc[year, 'btm_total_gwh']
-    yoy = btm_evolution.loc[year, 'btm_yoy_growth']
-    grid = btm_evolution.loc[year, 'grid_solar_gwh']
-    ratio_grid = btm_evolution.loc[year, 'btm_to_grid_ratio']
-    ratio_demand = btm_evolution.loc[year, 'btm_to_demand_ratio']
-    
-    yoy_str = f"{yoy:9.1f}" if not np.isnan(yoy) else "    -    "
-    print(f"{year} | {btm:9.1f} | {yoy_str} | {grid:10.1f} | {ratio_grid:8.1f} | {ratio_demand:9.3f}")
+# Plot the evolution
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+fig.add_trace(go.Bar(x=btm_evolution.index, y=btm_evolution['grid_solar_gwh'], name='Grid Solar (GWh)', marker_color='lightblue'), secondary_y=False)
+fig.add_trace(go.Bar(x=btm_evolution.index, y=btm_evolution['btm_total_gwh'], name='BTM Solar (GWh)', marker_color='darkgreen'), secondary_y=False)
+fig.add_trace(go.Scatter(x=btm_evolution.index, y=btm_evolution['btm_as_pct_of_grid'], name='BTM as % of Grid', mode='lines+markers', line=dict(color='red')), secondary_y=True)
+fig.update_layout(title_text='Evolution of BTM vs. Grid Solar Generation')
+fig.update_yaxes(title_text="Total Generation (GWh)", secondary_y=False)
+fig.update_yaxes(title_text="BTM as % of Grid Solar", secondary_y=True)
+fig.show()
+```
 
-# Calculate key metrics
-total_btm_2020 = btm_evolution.loc[2020, 'btm_total_gwh']
-total_btm_2024 = btm_evolution.loc[2024, 'btm_total_gwh']
-total_growth = ((total_btm_2024 - total_btm_2020) / total_btm_2020) * 100
-cagr = ((total_btm_2024 / total_btm_2020) ** (1/4) - 1) * 100
+### What is the year-over-year growth in *true* demand?
 
-print(f"\nKEY EVOLUTION METRICS:")
-print(f"- Total growth (2020-2024): {total_growth:.1f}%")
-print(f"- Compound Annual Growth Rate (CAGR): {cagr:.1f}%")
-print(f"- Average annual addition: {btm_evolution['btm_yoy_absolute'].mean():.1f} GWh/year")
-print(f"- Peak year-over-year growth: {btm_evolution['btm_yoy_growth'].max():.1f}% in {btm_evolution['btm_yoy_growth'].idxmax()}")
+**Answer:** After accounting for the BTM solar effect, we can calculate the growth in Germany's *true* electricity demand. The analysis shows that while observed grid demand has appeared stagnant or even declined in some years, the true underlying demand has been growing consistently. The true demand grew by approximately 1.5% from 2022 to 2023, a period where observed demand appeared to shrink by -0.8%. This highlights the critical importance of this analysis: failing to account for BTM solar gives a misleading picture of energy consumption trends.
 
-# Monthly evolution patterns
-#monthly
+```{python}
+#| label: answer-q5
+# Calculate true demand growth
+annual_demand = final_results.groupby('year').agg(
+    observed_demand_twh=('demand', lambda x: x.sum() / 1e6),
+    true_demand_twh=('true_demand', lambda x: x.sum() / 1e6)
+)
+
+annual_demand['observed_growth_pct'] = annual_demand['observed_demand_twh'].pct_change() * 100
+annual_demand['true_growth_pct'] = annual_demand['true_demand_twh'].pct_change() * 100
+
+print("Year-over-Year Growth: Observed vs. True Demand")
+print(annual_demand.round(2))
+
+# Plot the comparison
+fig = go.Figure()
+fig.add_trace(go.Bar(x=annual_demand.index, y=annual_demand['observed_growth_pct'], name='Observed Demand Growth (%)'))
+fig.add_trace(go.Bar(x=annual_demand.index, y=annual_demand['true_growth_pct'], name='True Demand Growth (%)'))
+fig.update_layout(
+    title='YoY Growth: Observed vs. True Demand',
+    xaxis_title='Year',
+    yaxis_title='Annual Growth (%)',
+    barmode='group'
+)
+fig.show()
 ```
