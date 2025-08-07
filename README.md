@@ -178,11 +178,9 @@ After running the notebooks, you'll find:
 
 ## pipeline_example
 
-Contains an example data pipeline following guidelines
-requested in Question 3.
-
-Some comments about this approach
-Although the procedure that asks for data to be
-stored in 
+Contains an example data pipeline that processes GFS data 
+using 
+- scheduler
+- analysis via R code
 
 
