@@ -111,27 +111,6 @@ class GFSDataExtractor:
             logger.error(f"Failed to download {url}: {e}")
             return None
             
-    def download_grib_filter(self, date_str, cycle, forecast_hour):
-        """Download GFS data using GRIB filter service"""
-        url = build_grib_filter_url(date_str, cycle, forecast_hour)
-        logger.info(f"Downloading via GRIB filter: forecast hour {forecast_hour}")
-        
-        try:
-            response = requests.get(url, timeout=300)
-            response.raise_for_status()
-            
-            # Save to temporary file
-            temp_file = f"data/raw/gfs_filtered_{date_str}_{cycle}_{forecast_hour:03d}.grb2"
-            with open(temp_file, 'wb') as f:
-                f.write(response.content)
-                
-            logger.info(f"Downloaded filtered data: {len(response.content)} bytes")
-            return temp_file
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to download via GRIB filter: {e}")
-            return None
-            
     def process_grib_file(self, file_path, date_str, cycle, forecast_hour):
         """Process a single GRIB2 file"""
         try:
@@ -343,14 +322,14 @@ class GFSDataExtractor:
                 # Try direct download first, then GRIB filter
                 file_path = None
                 file_path = self.download_gfs_file(date_str, cycle, forecast_hour)
-                if file_path:
-                    break
-                
+
                 if not file_path:
                     logger.warning(f"Could not download data for {date_str} cycle {cycle} hour {forecast_hour}")
                     continue
                 
                 # Process the downloaded file
+                import pdb
+                pdb.set_trace()
                 df = self.process_grib_file(file_path, date_str, cycle, forecast_hour)
                 if df is not None:
                     cycle_data.append(df)

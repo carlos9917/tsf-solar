@@ -272,7 +272,8 @@ monthly_solar = data_q2[data_q2['is_solar_hours'] == 1].groupby(['year', 'month'
 monthly_non_solar = data_q2[data_q2['is_solar_hours'] == 0].groupby(['year', 'month'])['demand'].mean()
 monthly_diff = monthly_solar - monthly_non_solar
 
-monthly_index = pd.date_range(start='2020-01-01', end='2024-12-01', freq='MS')[:len(monthly_diff)]
+# Convert MultiIndex to datetime index
+monthly_index = pd.to_datetime([f"{year}-{month:02d}-01" for year, month in monthly_solar.index])
 
 axes[0].plot(monthly_index, monthly_solar.values, label='Solar Hours Demand', alpha=0.7)
 axes[0].plot(monthly_index, monthly_non_solar.values, label='Non-Solar Hours Demand', alpha=0.7)
