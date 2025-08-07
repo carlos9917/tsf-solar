@@ -148,6 +148,8 @@ class GFSDataExtractor:
             
             # Extract variables (handle different naming conventions)
             variables = {}
+            import pdb
+            pdb.set_trace()
             
             # Look for wind components at 100m
             for var_name in ds_subset.data_vars:

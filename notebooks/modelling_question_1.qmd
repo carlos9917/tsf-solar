@@ -472,7 +472,7 @@ forecast_ffn = get_predictions(ffn_model, forecast_loader_ffn)
 ```{python}
 #| label: lstm
 class LSTM(nn.Module):
-    """Enhanced LSTM with better architecture and regularization"""
+    """LSTM with better architecture and regularization"""
     def __init__(self, input_dim, hidden_dim=128, num_layers=2, dropout_rate=0.3):
         super().__init__()
         
@@ -485,7 +485,7 @@ class LSTM(nn.Module):
             bidirectional=False
         )
         
-        # Enhanced output layers
+        # output layers
         self.fc_layers = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.BatchNorm1d(hidden_dim // 2),
@@ -592,7 +592,7 @@ print("=== Model Comparison ===")
 
 # Create comprehensive results dataframe
 results_df = pd.DataFrame({
-    'Model': ['Persistence', 'Ridge Regression', 'XGBoost', 'Enhanced FFN', 'Enhanced LSTM'],
+    'Model': ['Persistence', 'Ridge Regression', 'XGBoost', 'FFN', 'LSTM'],
     'Validation RMSE': [val_rmse_persistence, val_rmse_lr, val_rmse_xgb, val_rmse_ffn, val_rmse_lstm],
     'Validation MAE': [val_mae_persistence, val_mae_lr, val_mae_xgb, val_mae_ffn, val_mae_lstm],
     'Validation R2': [val_r2_persistence, val_r2_lr, val_r2_xgb, val_r2_ffn, val_r2_lstm]
@@ -623,8 +623,8 @@ forecasts = {
     'Persistence': forecast_persistence,
     'Ridge Regression': forecast_lr,
     'XGBoost': forecast_xgb,
-    'Enhanced FFN': forecast_ffn,
-    'Enhanced LSTM': forecast_lstm
+    'FFN': forecast_ffn,
+    'LSTM': forecast_lstm
 }
 
 best_forecast = forecasts[best_model_name]
@@ -657,8 +657,8 @@ models_data = [
     ('Persistence', y_val_pred_persistence, y_val),
     ('Ridge Regression', y_val_pred_lr, y_val),
     ('XGBoost', y_val_pred_xgb, y_val),
-    ('Enhanced FFN', y_val_pred_ffn, y_val),
-    ('Enhanced LSTM', y_val_pred_lstm, y_val_seq)  # LSTM has fewer validation samples
+    ('FFN', y_val_pred_ffn, y_val),
+    ('LSTM', y_val_pred_lstm, y_val_seq)  # LSTM has fewer validation samples
 ]
 
 for idx, (name, pred, actual) in enumerate(models_data):
