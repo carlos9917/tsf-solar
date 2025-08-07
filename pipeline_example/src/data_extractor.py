@@ -104,7 +104,8 @@ class GFSDataExtractor:
             with open(temp_file, 'wb') as f:
                 f.write(response.content)
                 
-            logger.info(f"Downloaded {len(response.content)} bytes to {temp_file}")
+            #logger.info(f"Downloaded {len(response.content)} bytes to {temp_file}")
+            logger.info(f"Downloaded {len(response.content) / (1024*1024):.2f} MB to{temp_file}")
             return temp_file
             
         except requests.exceptions.RequestException as e:
@@ -120,8 +121,8 @@ class GFSDataExtractor:
             # The key is the name we expect cfgrib to assign to the variable.
             target_variables = {
                 't2m':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
-                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'}},
-                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'}},
+                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100u'}},
+                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': '100v'}},
                 'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
             }
 

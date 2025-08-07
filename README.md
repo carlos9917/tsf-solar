@@ -5,7 +5,7 @@ This project implements multiple forecasting models including traditional ML app
 
 ## 📋 Project Overview
 
-This repository contains the complete solution for the Vitus Commodities case study on solar power forecasting. The main objective is to develop accurate machine learning models to predict Germany's hourly solar power generation for June 2025 using historical data and meteorological features.
+This repository contains a solution for a case study on solar power forecasting. The main objective is to develop accurate machine learning models to predict Germany's hourly solar power generation for June 2025 using historical data and meteorological features.
 
 ## 🏗️ Repository Structure
 
@@ -178,11 +178,9 @@ After running the notebooks, you'll find:
 
 ## pipeline_example
 
-Contains an example data pipeline following guidelines
-requested in Question 3.
-
-Some comments about this approach
-Although the procedure that asks for data to be
-stored in 
+Contains an example data pipeline that processes GFS data 
+using 
+- scheduler
+- analysis via R code
 
 
