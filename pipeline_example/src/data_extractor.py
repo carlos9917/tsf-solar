@@ -217,67 +217,6 @@ class GFSDataExtractor:
         except Exception as e:
             logger.error(f"Failed to save data to database: {e}")
             
-    def calculate_country_rankings(self, date_str, cycle):
-        """Calculate country-level wind power density rankings"""
-        try:
-            conn = sqlite3.connect(DATABASE_PATH)
-            
-            # Query data for this forecast
-            query = """
-                SELECT lat, lon, wind_power_density 
-                FROM gfs_forecasts 
-                WHERE forecast_date = ? AND cycle = ?
-            """
-            
-            df = pd.read_sql_query(query, conn, params=(date_str, cycle))
-            
-            if df.empty:
-                logger.warning("No data found for country rankings calculation")
-                return
-            
-            # Simple country assignment based on lat/lon
-            countries = []
-            for _, row in df.iterrows():
-                lat, lon = row['lat'], row['lon']
-                if lat > 60:
-                    country = 'Norway'
-                elif lat > 55 and lon < 15:
-                    country = 'Denmark'
-                elif lat > 50 and lon < 5:
-                    country = 'United Kingdom'
-                elif lat > 45 and lon < 10:
-                    country = 'France'
-                elif lat > 45 and lon > 10:
-                    country = 'Germany'
-                elif lat > 40 and lon > 20:
-                    country = 'Eastern Europe'
-                else:
-                    country = 'Other'
-                countries.append(country)
-            
-            df['country'] = countries
-            
-            # Calculate country averages
-            country_avg = df.groupby('country')['wind_power_density'].mean().reset_index()
-            country_avg = country_avg.sort_values('wind_power_density', ascending=False)
-            country_avg['rank'] = range(1, len(country_avg) + 1)
-            country_avg['forecast_date'] = date_str
-            country_avg['cycle'] = cycle
-            
-            # Rename column
-            country_avg = country_avg.rename(columns={
-                'wind_power_density': 'avg_wind_power_density'
-            })
-            
-            # Save to database
-            country_avg.to_sql('country_rankings', conn, if_exists='append', index=False)
-            
-            conn.close()
-            logger.info(f"Calculated rankings for {len(country_avg)} countries")
-            
-        except Exception as e:
-            logger.error(f"Failed to calculate country rankings: {e}")
-            
     def run_extraction(self, date_str=None, cycle=None):
         """Run complete data extraction pipeline"""
         if date_str is None:
@@ -322,9 +261,6 @@ class GFSDataExtractor:
                 
                 # Save to database
                 self.save_to_database(combined_df)
-                
-                # Calculate country rankings
-                self.calculate_country_rankings(date_str, cycle)
                 
                 logger.info(f"Completed processing for {date_str} cycle {cycle}: {len(combined_df)} total records")
             else:

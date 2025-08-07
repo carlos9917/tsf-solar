@@ -163,6 +163,15 @@ cat(paste("\nSuccessfully saved country rankings to", output_csv_path, "\n"))
 
 # Save the rankings to the database
 con <- RSQLite::dbConnect(RSQLite::SQLite(), db_path)
+
+# --- Delete existing rankings for this forecast cycle to avoid duplicates ---
+delete_query <- sprintf(
+  "DELETE FROM country_rankings WHERE forecast_date = '%s' AND cycle = '%s'",
+  date_str, cycle_str
+)
+RSQLite::dbExecute(con, delete_query)
+cat(sprintf("\nDeleted existing rankings for %s cycle %s.\n", date_str, cycle_str))
+
 db_rankings <- country_results %>%
   mutate(forecast_date = date_str, cycle = cycle_str) %>%
   rename(country = name, avg_wind_power_density = avg_wpd_3day) %>%
@@ -174,5 +183,6 @@ if (!"country_rankings" %in% RSQLite::dbListTables(con)) {
 }
 RSQLite::dbWriteTable(con, "country_rankings", db_rankings, append = TRUE, row.names = FALSE)
 RSQLite::dbDisconnect(con)
+
 
 cat("Successfully saved country rankings to the database.\n")
