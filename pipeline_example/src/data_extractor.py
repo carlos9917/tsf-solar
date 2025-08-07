@@ -86,17 +86,9 @@ class GFSDataExtractor:
         except:
             return False
             
-    def download_gfs_file(self, date_str, cycle, forecast_hour, method='direct'):
+    def download_gfs_file(self, date_str, cycle, forecast_hour):
         """Download GFS file using specified method"""
-        import pdb
-        pdb.set_trace()
-        if method == 'direct':
-            return self.download_direct(date_str, cycle, forecast_hour)
-        elif method == 'grib_filter':
-            return self.download_grib_filter(date_str, cycle, forecast_hour)
-        else:
-            logger.error(f"Unknown download method: {method}")
-            return None
+        return self.download_direct(date_str, cycle, forecast_hour)
             
     def download_direct(self, date_str, cycle, forecast_hour):
         """Download GFS file directly from NOMADS"""
@@ -348,13 +340,9 @@ class GFSDataExtractor:
                 
                 # Try direct download first, then GRIB filter
                 file_path = None
-                for method in [ACCESS_METHOD, 'grib_filter']:
-                    if method == ACCESS_METHOD:
-                        continue  # Skip if same method
-                    
-                    file_path = self.download_gfs_file(date_str, cycle, forecast_hour, method)
-                    if file_path:
-                        break
+                file_path = self.download_gfs_file(date_str, cycle, forecast_hour)
+                if file_path:
+                    break
                 
                 if not file_path:
                     logger.warning(f"Could not download data for {date_str} cycle {cycle} hour {forecast_hour}")

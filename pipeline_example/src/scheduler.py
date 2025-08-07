@@ -134,7 +134,8 @@ if __name__ == "__main__":
                        help='GFS cycle for manual extraction')
     
     args = parser.parse_args()
-    
+    import pdb
+    pdb.set_trace()
     scheduler = GFSScheduler()
     
     if args.mode == 'manual':
