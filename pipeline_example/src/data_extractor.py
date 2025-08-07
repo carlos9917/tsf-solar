@@ -115,94 +115,77 @@ class GFSDataExtractor:
         """Process a single GRIB2 file"""
         try:
             logger.info(f"Processing GRIB file: {file_path}")
-            
-            # Load with xarray/cfgrib
-            ds = xr.open_dataset(file_path, engine='cfgrib')
-            
+
+            # --- FIX: Load variables individually with specific filters ---
+            target_variables = {
+                't2m': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2}},
+                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}},
+                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100}},
+                'sp': {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
+            }
+
+            ds_list = []
+            for var_name, filter_keys in target_variables.items():
+                try:
+                    ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=filter_keys)
+                    ds_list.append(ds_single)
+                except Exception as e:
+                    logger.warning(f"Could not extract variable using {filter_keys}. Error: {e}")
+
+            if not ds_list:
+                logger.error(f"Could not extract any variables from {file_path}")
+                return None
+
+            # Merge the datasets
+            ds = xr.merge(ds_list)
+            # --- END FIX ---
+
             # Subset for European region
+            # Note: GFS longitude is 0-360. We need to convert our -15 to 345.
+            lon_min_converted = EUROPE_BOUNDS['lon_min'] + 360 if EUROPE_BOUNDS['lon_min'] < 0 else EUROPE_BOUNDS['lon_min']
+            lon_max_converted = EUROPE_BOUNDS['lon_max'] + 360 if EUROPE_BOUNDS['lon_max'] < 0 else EUROPE_BOUNDS['lon_max']
+
             ds_subset = ds.sel(
                 latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']),
-                longitude=slice(EUROPE_BOUNDS['lon_min'], EUROPE_BOUNDS['lon_max'])
+                longitude=slice(lon_min_converted, lon_max_converted)
             )
-            
-            # Extract variables (handle different naming conventions)
-            variables = {}
-            import pdb
-            pdb.set_trace()
-            
-            # Look for wind components at 100m
-            for var_name in ds_subset.data_vars:
-                attrs = ds_subset[var_name].attrs
-                
-                if ('u-component of wind' in str(attrs).lower() and 
-                    '100 m above ground' in str(attrs).lower()):
-                    variables['u_wind_100m'] = ds_subset[var_name]
-                elif ('v-component of wind' in str(attrs).lower() and 
-                      '100 m above ground' in str(attrs).lower()):
-                    variables['v_wind_100m'] = ds_subset[var_name]
-                elif ('temperature' in str(attrs).lower() and 
-                      '2 m above ground' in str(attrs).lower()):
-                    variables['temp_2m'] = ds_subset[var_name]
-                    
-            # Alternative: try by variable name patterns
-            if len(variables) < 3:
-                for var_name in ds_subset.data_vars:
-                    if 'u' in var_name.lower() and ('100' in var_name or 'wind' in var_name.lower()):
-                        variables['u_wind_100m'] = ds_subset[var_name]
-                    elif 'v' in var_name.lower() and ('100' in var_name or 'wind' in var_name.lower()):
-                        variables['v_wind_100m'] = ds_subset[var_name]
-                    elif 't' in var_name.lower() and ('2m' in var_name.lower() or 'temp' in var_name.lower()):
-                        variables['temp_2m'] = ds_subset[var_name]
-            
-            if len(variables) < 2:  # At least need wind components
-                logger.warning(f"Could not find required variables. Available: {list(ds_subset.data_vars.keys())}")
-                return None
-                
-            # Calculate wind power density if we have wind components
-            if 'u_wind_100m' in variables and 'v_wind_100m' in variables:
-                u_wind = variables['u_wind_100m']
-                v_wind = variables['v_wind_100m']
-                wind_speed = np.sqrt(u_wind**2 + v_wind**2)
-                
-                # Air density (kg/m³) - approximate for standard conditions
-                air_density = 1.225
-                
-                # Wind power density (W/m²) = 0.5 * ρ * v³
-                wind_power_density = 0.5 * air_density * wind_speed**3
-                variables['wind_power_density'] = wind_power_density
-            
-            # Convert to DataFrame
-            df_data = []
-            
-            for lat_idx, lat in enumerate(ds_subset.latitude.values):
-                for lon_idx, lon in enumerate(ds_subset.longitude.values):
-                    row = {
-                        'forecast_date': date_str,
-                        'cycle': cycle,
-                        'forecast_hour': forecast_hour,
-                        'lat': float(lat),
-                        'lon': float(lon)
-                    }
-                    
-                    # Extract values for this location
-                    for var_name, var_data in variables.items():
-                        if len(var_data.dims) == 2:  # lat, lon
-                            value = var_data.isel(latitude=lat_idx, longitude=lon_idx).values
-                        else:  # might have time dimension
-                            value = var_data.isel(latitude=lat_idx, longitude=lon_idx).values
-                            if hasattr(value, 'item'):
-                                value = value.item()
-                        
-                        row[var_name] = float(value) if not np.isnan(value) else None
-                    
-                    df_data.append(row)
-            
-            df = pd.DataFrame(df_data)
-            df = df.dropna()  # Remove rows with missing data
-            
-            logger.info(f"Processed {len(df)} data points from {file_path}")
-            return df
-            
+
+            # Create a DataFrame from the xarray Dataset
+            df = ds_subset.to_dataframe().reset_index()
+
+            # Calculate wind speed
+            wind_speed = np.sqrt(df['u100']**2 + df['v100']**2)
+
+            # Calculate air density (rho) using the ideal gas law: rho = P / (R * T)
+            # P = pressure in Pa (sp is surface pressure in Pa)
+            # T = temperature in Kelvin (t2m is in K)
+            # R = specific gas constant for dry air (approx. 287.058 J/(kg*K))
+            R_specific = 287.058
+            air_density = df['sp'] / (R_specific * df['t2m'])
+
+            # Calculate wind power density (W/m^2)
+            wind_power_density = 0.5 * air_density * (wind_speed**3)
+
+            # Prepare final DataFrame
+            df_final = pd.DataFrame({
+                'forecast_date': date_str,
+                'cycle': cycle,
+                'forecast_hour': forecast_hour,
+                'lat': df['latitude'],
+                'lon': df['longitude'],
+                'u_wind_100m': df['u100'],
+                'v_wind_100m': df['v100'],
+                'temp_2m': df['t2m'],
+                'wind_power_density': wind_power_density
+            })
+
+            # Convert longitude back to -180 to 180 for easier use in GIS
+            df_final['lon'] = df_final['lon'].apply(lambda x: x - 360 if x > 180 else x)
+            df_final = df_final.dropna()
+
+            logger.info(f"Processed {len(df_final)} data points from {file_path}")
+            return df_final
+
         except Exception as e:
             logger.error(f"Failed to process GRIB file {file_path}: {e}")
             return None
@@ -328,8 +311,6 @@ class GFSDataExtractor:
                     continue
                 
                 # Process the downloaded file
-                import pdb
-                pdb.set_trace()
                 df = self.process_grib_file(file_path, date_str, cycle, forecast_hour)
                 if df is not None:
                     cycle_data.append(df)
