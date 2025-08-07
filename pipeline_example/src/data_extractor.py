@@ -116,12 +116,13 @@ class GFSDataExtractor:
         try:
             logger.info(f"Processing GRIB file: {file_path}")
 
-            # --- FIX 2: Load variables individually and merge with override ---
+            # Define the variables we need and the filters to extract them.
+            # The key is the name we expect cfgrib to assign to the variable.
             target_variables = {
-                't2m': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
-                'u': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'}},
-                'v': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'}},
-                'sp': {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
+                't2m':  {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 2, 'shortName': '2t'}},
+                'u100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'u'}},
+                'v100': {'filter_by_keys': {'typeOfLevel': 'heightAboveGround', 'level': 100, 'shortName': 'v'}},
+                'sp':   {'filter_by_keys': {'typeOfLevel': 'surface', 'shortName': 'sp'}},
             }
 
             ds_list = []
@@ -130,7 +131,7 @@ class GFSDataExtractor:
                     ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=backend_kwargs)
                     ds_list.append(ds_single)
                 except Exception as e:
-                    logger.warning(f"Could not extract variable '{var_name}'. It might be missing in the GRIB file. Error: {e}")
+                    logger.warning(f"Could not extract variable for filter {backend_kwargs}. It might be missing. Error: {e}")
 
             if len(ds_list) < 4:
                 logger.error(f"Failed to extract all required variables from {file_path}. Found {len(ds_list)} out of 4.")
@@ -138,14 +139,11 @@ class GFSDataExtractor:
 
             # Merge the datasets, overriding the conflicting coordinates like 'heightAboveGround'
             ds = xr.merge(ds_list, compat='override')
-            # --- END FIX ---
 
             # Subset for European region
-            # GFS longitude is 0-360. Convert our bounds to match.
             lon_min_converted = EUROPE_BOUNDS['lon_min'] % 360
             lon_max_converted = EUROPE_BOUNDS['lon_max'] % 360
             
-            # Handle crossing the prime meridian if necessary, though not for Europe
             if lon_min_converted > lon_max_converted:
                  ds_subset = ds.where((ds.longitude >= lon_min_converted) | (ds.longitude <= lon_max_converted), drop=True)
             else:
@@ -153,12 +151,11 @@ class GFSDataExtractor:
 
             ds_subset = ds_subset.sel(latitude=slice(EUROPE_BOUNDS['lat_max'], EUROPE_BOUNDS['lat_min']))
 
-
             # Create a DataFrame from the xarray Dataset
             df = ds_subset.to_dataframe().reset_index()
 
             # Calculate wind speed using correct variable names from cfgrib
-            wind_speed = np.sqrt(df['u']**2 + df['v']**2)
+            wind_speed = np.sqrt(df['u100']**2 + df['v100']**2)
 
             # Calculate air density (rho) using the ideal gas law: rho = P / (R * T)
             R_specific = 287.058
@@ -174,8 +171,8 @@ class GFSDataExtractor:
                 'forecast_hour': forecast_hour,
                 'lat': df['latitude'],
                 'lon': df['longitude'],
-                'u_wind_100m': df['u'],
-                'v_wind_100m': df['v'],
+                'u_wind_100m': df['u100'],
+                'v_wind_100m': df['v100'],
                 'temp_2m': df['t2m'],
                 'wind_power_density': wind_power_density
             })
