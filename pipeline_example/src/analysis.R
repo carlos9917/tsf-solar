@@ -1,13 +1,45 @@
-library(sf)
-library(dplyr)
-library(DBI)
-library(RSQLite)
-library(ggplot2)
-library(ggspatial)
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(lubridate)
-library(tidyr)
+# --- 1. Setup and Package Installation ---
+# List of required packages
+required_packages <- c(
+  "RSQLite",    # For reading from SQLite database
+  "dplyr",      # For data manipulation
+  "lubridate",  # For date-time manipulation
+  "ggplot2",    # For plotting
+  "sf",         # For handling spatial vector data (countries)
+  "terra",      # For handling spatial raster data
+  "rnaturalearth", # For country boundary data
+  "rnaturalearthdata",
+  "exactextractr", # For summarizing raster data over polygons
+  "viridis",     # For color palettes
+  "DBI",
+  "sf",
+  "here",
+  "tidyr",
+  "ggspatial",
+  "lwgeom"  
+)
+
+# Function to install packages if they are not already installed
+install_if_missing <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, repos = "http://cran.us.r-project.org")
+  }
+  library(pkg, character.only = TRUE)
+}
+
+# Apply the function to all required packages
+suppressPackageStartupMessages(sapply(required_packages, install_if_missing))
+#library(sf)
+#library(dplyr)
+#library(DBI)
+#library(RSQLite)
+#library(ggplot2)
+#library(ggspatial)
+#library(rnaturalearth)
+#library(rnaturalearthdata)
+#library(lubridate)
+#library(tidyr)
+#library(lwgeom)  # install.packages("lwgeom") if needed
 
 download_natural_earth <- function(data_dir = "data/geospatial") {
   shapefile_path <- file.path(data_dir, "ne_110m_admin_0_countries", "ne_110m_admin_0_countries.shp")
@@ -117,19 +149,13 @@ p <- ggplot() +
   
   points_sf <- st_as_sf(total_avg_wpd, coords = c("lon", "lat"), crs = 4326)
 
-
-
-
-
 # Select relevant columns with correct names
 countries_gdf <- europe[, c("NAME", "ISO_A3", "geometry")]
-library(lwgeom)  # install.packages("lwgeom") if needed
-countries_gdf <- st_make_valid(countries_gdf)
+countries_gdf <- st_make_valid(countries_gdf) # correct polygons
 
 # Spatial join points with countries
 joined_gdf <- st_join(points_sf, countries_gdf, join = st_within)
 
-browser()
 # Calculate average wind power density by country
 country_avg <- joined_gdf %>%
   st_drop_geometry() %>%
@@ -138,14 +164,7 @@ country_avg <- joined_gdf %>%
   arrange(desc(avg_wpd_3day)) %>%
   mutate(rank = row_number())
 
-
-
-
-
-
-
   
-  # Spatial join points with countries
   #joined <- st_join(points_sf, world[, c("name", "iso_a3", "geometry")], join = st_within)
   #
   #country_avg <- joined %>%
