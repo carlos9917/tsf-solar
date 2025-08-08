@@ -6,7 +6,7 @@
 required_packages <- c(
   "shiny", "shinydashboard", "leaflet", "plotly", "DBI", "RSQLite", 
   "dplyr", "ggplot2", "sf", "rnaturalearth", "rnaturalearthdata", "tidyr",
-  "viridis"
+  "viridis", "leaflegend"
 )
 
 # Function to install packages if they are not already installed
@@ -118,7 +118,7 @@ server <- function(input, output, session) {
     #pal <- colorNumeric(palette = "viridis", domain = df_hour$wind_power_density)
 
     #pal <- colorNumeric(palette = viridis(256, direction = -1), domain = df_hour$wind_power_density)
-    pal <- colorNumeric(palette = viridis(256), domain = df_hour$wind_power_density)
+    pal <- colorNumeric(palette = viridis(256), domain = df_hour$wind_power_density, reverse = TRUE)  # Add this parameter)
 
     
     leaflet(df_hour) %>%
@@ -136,9 +136,17 @@ server <- function(input, output, session) {
       #addLegend("bottomright", pal = pal, values = rev(sort(df_hour$wind_power_density)),
       #    title = "Wind Power Density",
       #    opacity = 1) %>%
-     addLegend("bottomleft", pal = pal, values = df_hour$wind_power_density,
-          title = "Wind Power Density",
-          opacity = 1) %>%
+     #addLegend("bottomleft", pal = pal, values = df_hour$wind_power_density,
+     #     title = "Wind Power Density",
+     #     opacity = 1) %>%
+ addLegendNumeric(
+    pal = pal, 
+    values = df_hour$wind_power_density,
+    title = "Wind Power Density",
+    position = "bottomleft",
+    orientation = "vertical",
+    decreasing = TRUE  # This reverses the legend order
+  ) %>%
       setView(lng = 15, lat = 55, zoom = 4)
   })
   
