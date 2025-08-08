@@ -234,26 +234,20 @@ class GFSDataExtractor:
         for cycle in cycles_to_process:
             logger.info(f"Processing cycle {cycle} for date {date_str}")
             
-            cycle_data = []
+            # Use Dask to process forecast hours in parallel
+            from dask import delayed, compute
             
-            # Process each forecast hour
+            lazy_results = []
             for forecast_hour in FORECAST_HOURS:
-                logger.info(f"Processing forecast hour {forecast_hour}")
-                
-                # Try direct download first, then GRIB filter
-                file_path = None
-                file_path = self.download_gfs_file(date_str, cycle, forecast_hour)
-
-                if not file_path:
-                    logger.warning(f"Could not download data for {date_str} cycle {cycle} hour {forecast_hour}")
-                    continue
-                
-                # Process the downloaded file
-                df = self.process_grib_file(file_path, date_str, cycle, forecast_hour)
-                if df is not None:
-                    cycle_data.append(df)
-                else:
-                    logger.warning(f"Could not process data for {date_str} cycle {cycle} hour {forecast_hour}")
+                # Wrap the processing of each forecast hour in a Dask delayed object
+                lazy_result = delayed(self.process_single_forecast_hour)(date_str, cycle, forecast_hour)
+                lazy_results.append(lazy_result)
+            
+            # Compute all delayed results in parallel
+            results = compute(*lazy_results)
+            
+            # Filter out None results (from failed downloads/processing)
+            cycle_data = [res for res in results if res is not None]
             
             # Combine all forecast hours for this cycle
             if cycle_data:
@@ -265,6 +259,26 @@ class GFSDataExtractor:
                 logger.info(f"Completed processing for {date_str} cycle {cycle}: {len(combined_df)} total records")
             else:
                 logger.error(f"No data processed for {date_str} cycle {cycle}")
+
+    def process_single_forecast_hour(self, date_str, cycle, forecast_hour):
+        """Process a single forecast hour"""
+        logger.info(f"Processing forecast hour {forecast_hour}")
+        
+        # Try direct download first, then GRIB filter
+        file_path = None
+        file_path = self.download_gfs_file(date_str, cycle, forecast_hour)
+
+        if not file_path:
+            logger.warning(f"Could not download data for {date_str} cycle {cycle} hour {forecast_hour}")
+            return None
+        
+        # Process the downloaded file
+        df = self.process_grib_file(file_path, date_str, cycle, forecast_hour)
+        if df is not None:
+            return df
+        else:
+            logger.warning(f"Could not process data for {date_str} cycle {cycle} hour {forecast_hour}")
+            return None
 
 if __name__ == "__main__":
     import argparse
