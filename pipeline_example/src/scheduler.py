@@ -64,8 +64,36 @@ class GFSScheduler:
             self.extractor.run_extraction(date_str, cycle)
             logger.info("Scheduled extraction completed successfully")
             
+            # After extraction, run the R script for analysis
+            self.run_analysis_script(date_str, cycle)
+            
         except Exception as e:
             logger.error(f"Scheduled extraction failed: {e}")
+            
+    def run_analysis_script(self, date_str, cycle):
+        """Run the R analysis script"""
+        try:
+            logger.info(f"Running R analysis script for {date_str} cycle {cycle}")
+            import subprocess
+            
+            # Path to the R script
+            r_script_path = "src/analysis.R"
+            
+            # Command to execute the R script with arguments
+            command = ["Rscript", r_script_path, date_str, cycle]
+            
+            # Execute the command
+            result = subprocess.run(command, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                logger.info("R script executed successfully")
+                logger.info(f"R script output:\n{result.stdout}")
+            else:
+                logger.error(f"R script execution failed with return code {result.returncode}")
+                logger.error(f"R script error output:\n{result.stderr}")
+                
+        except Exception as e:
+            logger.error(f"Failed to run R analysis script: {e}")
             
     def setup_file_monitoring(self):
         """Setup file system monitoring using watchdog"""
@@ -134,10 +162,6 @@ if __name__ == "__main__":
                        help='GFS cycle for manual extraction')
     
     args = parser.parse_args()
-    import sys
-    print("sys.argv:", sys.argv)
-    import pdb
-    pdb.set_trace()
     scheduler = GFSScheduler()
     
     if args.mode == 'manual':
