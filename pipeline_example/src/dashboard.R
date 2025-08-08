@@ -117,7 +117,8 @@ server <- function(input, output, session) {
     
     #pal <- colorNumeric(palette = "viridis", domain = df_hour$wind_power_density)
 
-    pal <- colorNumeric(palette = viridis(256, direction = -1), domain = df_hour$wind_power_density)
+    #pal <- colorNumeric(palette = viridis(256, direction = -1), domain = df_hour$wind_power_density)
+    pal <- colorNumeric(palette = viridis(256), domain = df_hour$wind_power_density)
 
     
     leaflet(df_hour) %>%
@@ -129,10 +130,13 @@ server <- function(input, output, session) {
         stroke = FALSE, fillOpacity = 0.7,
         popup = ~paste0("WPD: ", round(wind_power_density, 2), " W/m²")
       ) %>%
-      #addLegend("bottomright", pal = pal, values = ~wind_power_density,
+      #addLegend("bottomleft", pal = pal, values = ~wind_power_density,
       #          title = "Wind Power Density",
       #          opacity = 1) %>%
-      addLegend("bottomright", pal = pal, values = rev(sort(df_hour$wind_power_density)),
+      #addLegend("bottomright", pal = pal, values = rev(sort(df_hour$wind_power_density)),
+      #    title = "Wind Power Density",
+      #    opacity = 1) %>%
+     addLegend("bottomleft", pal = pal, values = df_hour$wind_power_density,
           title = "Wind Power Density",
           opacity = 1) %>%
       setView(lng = 15, lat = 55, zoom = 4)
