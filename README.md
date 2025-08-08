@@ -111,23 +111,23 @@ tsf-solar/
 
 ### Key Notebooks
 
-- **`eda_question_1.qmd`**: Comprehensive exploratory data analysis including:
+- **`eda_question_1.qmd`**: Exploratory data analysis for question 1 including:
   - Data quality assessment
   - Time series visualization
   - Correlation analysis
   - Feature importance identification
 
-- **`modelling_question_1.qmd`**: Complete modeling pipeline featuring:
+- **`modelling_question_1.qmd`**: Modeling pipeline for question 1 featuring:
   - Feature engineering based on EDA insights
   - Four different model implementations
   - Model comparison and evaluation
   - Final forecast generation for June 2025
 
-- **`modelling_question_1.qmd`**: Complete modeling pipeline featuring:
+- **`modelling_question_2.qmd`**: Modeling pipeline for question 2 featuring:
   - Feature engineering based on EDA insights
-  - Four different model implementations
-  - Model comparison and evaluation
-  - Final forecast generation for June 2025
+  - Three different model implementations
+  - Model ensemble based on the three previous models
+  - Specific answers to questions raised in Question 2.
 
 ## 🤖 Models Implemented
 
