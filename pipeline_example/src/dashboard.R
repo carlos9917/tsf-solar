@@ -115,10 +115,7 @@ server <- function(input, output, session) {
     
     if (nrow(df_hour) == 0) return(leaflet() %>% addTiles())
     
-    #pal <- colorNumeric(palette = "viridis", domain = df_hour$wind_power_density)
-
-    #pal <- colorNumeric(palette = viridis(256, direction = -1), domain = df_hour$wind_power_density)
-    pal <- colorNumeric(palette = viridis(256), domain = df_hour$wind_power_density, reverse = TRUE)  # Add this parameter)
+    pal <- colorNumeric(palette = viridis(256), domain = df_hour$wind_power_density, reverse = TRUE)  # Add this parameter to invert colors
 
     
     leaflet(df_hour) %>%
@@ -130,15 +127,6 @@ server <- function(input, output, session) {
         stroke = FALSE, fillOpacity = 0.7,
         popup = ~paste0("WPD: ", round(wind_power_density, 2), " W/m²")
       ) %>%
-      #addLegend("bottomleft", pal = pal, values = ~wind_power_density,
-      #          title = "Wind Power Density",
-      #          opacity = 1) %>%
-      #addLegend("bottomright", pal = pal, values = rev(sort(df_hour$wind_power_density)),
-      #    title = "Wind Power Density",
-      #    opacity = 1) %>%
-     #addLegend("bottomleft", pal = pal, values = df_hour$wind_power_density,
-     #     title = "Wind Power Density",
-     #     opacity = 1) %>%
  addLegendNumeric(
     pal = pal, 
     values = df_hour$wind_power_density,
