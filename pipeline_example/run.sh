@@ -19,18 +19,18 @@ if (( HOUR >= 18 )); then CYCLE="12"; fi
 
 echo "Running pipeline for date $DATE and cycle $CYCLE"
 
-echo $DATE
-echo $CYCLE
 # Run the Python data extraction script
-#python3 src/data_extractor.py --date $DATE --cycle $CYCLE
+python3 src/data_extractor.py --date $DATE --cycle $CYCLE
 
 
 # Check if the python script succeeded
 if [ $? -eq 0 ]; then
   echo "Python script finished successfully."
-  echo "Running Python analysis script..."
+  #echo "Running Python analysis script..."
+  echo "Running R analysis script..."
   # Run the Python analysis script
-  python3 src/analysis.py $DATE $CYCLE
+  #python3 src/analysis.py $DATE $CYCLE
+  Rscript src/analysis.R $DATE $CYCLE
   if [ $? -eq 0 ]; then
     echo "R script finished successfully."
   else
