@@ -129,7 +129,14 @@ class GFSDataExtractor:
             ds_list = []
             for var_name, backend_kwargs in target_variables.items():
                 try:
-                    ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=backend_kwargs)
+                    #ds_single = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs=backend_kwargs)
+                    ds_single = xr.open_dataset(
+                        file_path,
+                        engine='cfgrib',
+                        backend_kwargs=backend_kwargs,
+                        decode_timedelta=True
+                    )
+
                     ds_list.append(ds_single)
                 except Exception as e:
                     logger.warning(f"Could not extract variable for filter {backend_kwargs}. It might be missing. Error: {e}")
