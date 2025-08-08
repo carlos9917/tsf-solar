@@ -22,7 +22,7 @@ echo "Running pipeline for date $DATE and cycle $CYCLE"
 echo $DATE
 echo $CYCLE
 # Run the Python data extraction script
-python3 src/data_extractor.py --date $DATE --cycle $CYCLE
+#python3 src/data_extractor.py --date $DATE --cycle $CYCLE
 
 
 # Check if the python script succeeded

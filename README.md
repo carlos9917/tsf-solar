@@ -79,6 +79,8 @@ tsf-solar/
    Since the only code using R is in the pipeline_example the following
    instructions should be followed:
 
+Packages for R
+library(lwgeom)
 
 ### Data Setup
 
