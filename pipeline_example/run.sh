@@ -4,6 +4,19 @@
 
 # This script provides a simple interface for running the GFS Wind Power Density Pipeline.
 
+# Function to display help
+show_help() {
+    echo "Usage: ./run.sh [scheduler|dashboard|dashboard-py|manual|default] [options]"
+    echo "  - scheduler: Run the automated data extraction and analysis pipeline."
+    echo "  - dashboard: Run the interactive R Shiny dashboard."
+    echo "  - dashboard-py: Run the interactive Python Dash dashboard."
+    echo "  - manual: Run a one-time data extraction and analysis."
+    echo "    - --date <YYYYMMDD>: The date to extract data for."
+    echo "    - --cycle <00|06|12|18>: The GFS cycle to extract data for."
+    echo "  - default: Run the original pipeline script."
+}
+
+
 # Activate virtual environment if it exists
 if [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
@@ -12,6 +25,13 @@ fi
 # Get the first argument to determine the mode
 MODE=$1
 shift
+
+# Display help if no arguments are provided
+if [ -z "$MODE" ]; then
+    show_help
+    exit 0
+fi
+
 
 # --- Scheduler Mode ---
 if [ "$MODE" == "scheduler" ]; then
@@ -34,7 +54,7 @@ elif [ "$MODE" == "manual" ]; then
     python3 src/scheduler.py --mode manual "$@"
     
 # --- Original Mode (for compatibility) ---
-elif [ -z "$MODE" ] || [ "$MODE" == "default" ]; then
+elif [ "$MODE" == "default" ]; then
     # Get today's date in YYYYMMDD format
     DATE=$(date +%Y%m%d)
     # Get the previous cycle (00, 06, 12, 18)
@@ -75,14 +95,8 @@ elif [ -z "$MODE" ] || [ "$MODE" == "default" ]; then
 
 # --- Help ---
 else
-    echo "Usage: ./run.sh [scheduler|dashboard|dashboard-py|manual|default] [options]"
-    echo "  - scheduler: Run the automated data extraction and analysis pipeline."
-    echo "  - dashboard: Run the interactive R Shiny dashboard."
-    echo "  - dashboard-py: Run the interactive Python Dash dashboard."
-    echo "  - manual: Run a one-time data extraction and analysis."
-    echo "    - --date <YYYYMMDD>: The date to extract data for."
-    echo "    - --cycle <00|06|12|18>: The GFS cycle to extract data for."
-    echo "  - default: Run the original pipeline script."
+    show_help
 fi
+
 
 
