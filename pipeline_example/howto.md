@@ -12,10 +12,9 @@ The project is organized into the following directories:
   - `processed/`: Contains the processed data, including the SQLite database (`gfs_data.db`) and generated plots.
 - `src/`: Contains the source code for the pipeline.
   - `data_extractor.py`: The Python script for downloading and processing GFS data.
-  - `analysis.R`: The R script for analyzing the processed data and generating visualizations.
   - `scheduler.py`: The Python script for scheduling the data extraction and analysis.
-  - `dashboard.py`: The Python script for the interactive dashboard.
-  - `dashboard.R`: The R script for the interactive dashboard.
+  - `analysis.R`: The R script for analyzing the processed data and generating visualizations.
+  - `dashboard.R`: The shiny (R) script for the interactive dashboard.
 - `logs/`: Contains the log files for the pipeline.
 
 ## 2. Installation
@@ -27,9 +26,9 @@ To set up the project, follow these steps:
    git clone <repository_url>
    cd <repository_name>
    ```
-2. **Install the required Python packages:**
+2. **Install the required Python packages using uv and pip (see README.md for uv installation details):**
    ```bash
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
 3. **Install the required R packages:**
    The `analysis.R` script will automatically install any missing R packages when it's run for the first time.
@@ -56,19 +55,9 @@ To run the interactive R Shiny dashboard, use the following command:
 ./run.sh dashboard
 ```
 
-The dashboard will be available at `http://127.0.0.1:8050`.
+The dashboard will be available at `http://0.0.0.0:8050`.
 
-### 3.3. Running the Python Dash Dashboard
-
-To run the interactive Python Dash dashboard, use the following command:
-
-```bash
-./run.sh dashboard-py
-```
-
-The dashboard will be available at `http://127.0.0.1:8050`.
-
-### 3.4. Manual Data Extraction
+### 3.3. Manual Data Extraction
 
 To run a manual data extraction for a specific date and cycle, use the following command:
 
@@ -90,3 +79,30 @@ The output of the pipeline is stored in the `data/processed` directory.
 - `plots/`: Contains the generated plots, including wind power density maps and country rankings.
 
 You can also view the output through the interactive dashboard.
+
+## Running the data extraction pipeline as a cronjob
+
+To run the pipeline via a crontab, you should use the default mode of the run.sh script. 
+The GFS data is released shortly after 00:00, 06:00, 12:00, and 18:00 UTC. The scheduler.py script schedules the runs for 01:00, 07:00, 13:00, and 19:00 to ensure the data is available.
+
+
+  Here is how you can set up your crontab to replicate this schedule.
+
+   1. Open your crontab for editing:
+   1     `crontab -e`
+
+   2. Add the following lines to your crontab file. This will execute the pipeline at the desired times. Make sure to replace /path/to/your/project with the
+      actual absolute path to the tsf-solar directory.
+```
+# Run the GFS pipeline every 6 hours, one hour after the data is expected. All times below in UTC.
+0 1 * * * cd /path/to/your/project && ./run.sh default >> /path/to/your/project/logs/cron.log 2>&1
+0 7 * * * cd /path/to/your/project && ./run.sh default >> /path/to/your/project/logs/cron.log 2>&1
+0 13 * * * cd /path/to/your/project && ./run.sh default >> /path/to/your/project/logs/cron.log 2>&1
+0 19 * * * cd /path/to/your/project && ./run.sh default >> /path/to/your/project/logs/cron.log 2>&1
+```
+
+where `/path/to/your/project=/location_of_repository/pipeline_example (ex: $HOME/user/sf-solar/pipeline_example)`
+
+This setup will automate the data pipeline to run at the correct intervals to fetch the latest GFS data, process it, and generate the analysis, just as
+the original scheduler.py script was intended to do.
+
