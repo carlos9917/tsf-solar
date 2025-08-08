@@ -5,7 +5,8 @@
 # List of required packages for the dashboard
 required_packages <- c(
   "shiny", "shinydashboard", "leaflet", "plotly", "DBI", "RSQLite", 
-  "dplyr", "ggplot2", "sf", "rnaturalearth", "rnaturalearthdata", "tidyr"
+  "dplyr", "ggplot2", "sf", "rnaturalearth", "rnaturalearthdata", "tidyr",
+  "viridis"
 )
 
 # Function to install packages if they are not already installed
@@ -114,7 +115,10 @@ server <- function(input, output, session) {
     
     if (nrow(df_hour) == 0) return(leaflet() %>% addTiles())
     
-    pal <- colorNumeric(palette = "viridis", domain = df_hour$wind_power_density)
+    #pal <- colorNumeric(palette = "viridis", domain = df_hour$wind_power_density)
+
+    pal <- colorNumeric(palette = viridis(256, direction = -1), domain = df_hour$wind_power_density)
+
     
     leaflet(df_hour) %>%
       addTiles() %>%
@@ -125,9 +129,12 @@ server <- function(input, output, session) {
         stroke = FALSE, fillOpacity = 0.7,
         popup = ~paste0("WPD: ", round(wind_power_density, 2), " W/m²")
       ) %>%
-      addLegend("bottomright", pal = pal, values = ~wind_power_density,
-                title = "Wind Power Density",
-                opacity = 1) %>%
+      #addLegend("bottomright", pal = pal, values = ~wind_power_density,
+      #          title = "Wind Power Density",
+      #          opacity = 1) %>%
+      addLegend("bottomright", pal = pal, values = rev(sort(df_hour$wind_power_density)),
+          title = "Wind Power Density",
+          opacity = 1) %>%
       setView(lng = 15, lat = 55, zoom = 4)
   })
   
