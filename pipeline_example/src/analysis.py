@@ -1,8 +1,10 @@
 # src/analysis.py
+import fiona
+import geopandas as gpd
+world = gpd.read_file("data/geospatial/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
 
 import sqlite3
 import pandas as pd
-import geopandas as gpd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -25,11 +27,16 @@ def download_natural_earth(data_dir="data/geospatial"):
     print("Downloading Natural Earth dataset...")
     data_dir.mkdir(parents=True, exist_ok=True)
     
-    url = "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/110m/cultural/ne_110m_admin_0_countries.zip"
+    url = "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
     zip_path = data_dir / "ne_110m_admin_0_countries.zip"
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+                      " Chrome/58.0.3029.110 Safari/537.3"
+    }
+
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         with open(zip_path, 'wb') as f:
             f.write(response.content)
@@ -37,13 +44,12 @@ def download_natural_earth(data_dir="data/geospatial"):
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(data_dir / "ne_110m_admin_0_countries")
         
-        zip_path.unlink() # Clean up the zip file
-        print("Successfully downloaded and extracted Natural Earth dataset.")
+        zip_path.unlink()  # Clean up the zip file
+        print("downloaded and extracted Natural Earth dataset.")
         return shapefile_path
     except Exception as e:
         print(f"Failed to download or process Natural Earth dataset: {e}")
         return None
-
 def main(date_str, cycle_str):
     """Main function to perform analysis."""
     db_path = "data/processed/gfs_data.db"
@@ -70,12 +76,13 @@ def main(date_str, cycle_str):
     daily_avg_wpd = gfs_data.groupby(['lat', 'lon', 'forecast_day'])['wind_power_density'].mean().reset_index()
 
     # Get European country boundaries
-    world_shapefile = download_natural_earth()
-    if world_shapefile is None:
-        print("Could not load map data. Aborting visualization.")
-        return
-    world = gpd.read_file(world_shapefile)
-    europe = world[world.continent == 'Europe']
+    #world_shapefile = download_natural_earth()
+    #if world_shapefile is None:
+    #    print("Could not load map data. Aborting visualization.")
+    #    return
+    #world = gpd.read_file("data/geospatial/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+    #world = gpd.read_file("data/geospatial/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+    #europe = world[world.continent == 'Europe']
 
     # Create faceted plot
     unique_days = sorted(daily_avg_wpd['forecast_day'].unique())
@@ -112,6 +119,7 @@ def main(date_str, cycle_str):
 
     # --- 4. Country Ranking ---
     total_avg_wpd = gfs_data.groupby(['lat', 'lon'])['wind_power_density'].mean().reset_index()
+    world = gpd.read_file("data/geospatial/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
     
     geometry = [Point(xy) for xy in zip(total_avg_wpd.lon, total_avg_wpd.lat)]
     points_gdf = gpd.GeoDataFrame(total_avg_wpd, crs="EPSG:4326", geometry=geometry)

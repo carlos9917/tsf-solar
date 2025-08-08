@@ -9,8 +9,12 @@ DATE=$(date +%Y%m%d)
 # This is a simple example; a robust implementation would check for availability
 HOUR=$(date +%H)
 if (( HOUR >= 0 && HOUR < 6 )); then CYCLE="18"; DATE=$(date -d "yesterday" +%Y%m%d); fi
+
 if (( HOUR >= 6 && HOUR < 12 )); then CYCLE="00"; fi
+echo $HOUR
+
 if (( HOUR >= 12 && HOUR < 18 )); then CYCLE="06"; fi
+
 if (( HOUR >= 18 )); then CYCLE="12"; fi
 
 echo "Running pipeline for date $DATE and cycle $CYCLE"
