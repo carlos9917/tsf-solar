@@ -73,14 +73,15 @@ tsf-solar/
    - Follow instructions at: https://quarto.org/docs/get-started/
 
 
-4. **Install R**
-   A working installation of R is assumed, but if the user wants
-   to isolate the installation, the `renv` library is suggested.
-   Since the only code using R is in the pipeline_example the following
-   instructions should be followed:
+4. **Install R and R Libraries**
+   A working installation of R (version 4.5.1 or newer) is required to run the R-based analysis scripts and notebooks.
 
-Packages for R
-library(lwgeom)
+   - **For the `pipeline_example`:** The R packages are installed automatically when you run the `analysis.R` script, as mentioned in the [pipeline how-to guide](./pipeline_example/howto.md).
+   - **For other R scripts (`.qmd` files in `doc/`):** You will need to install the required libraries manually. You can do this by opening an R session and running:
+     ```R
+     install.packages(c("tidyverse", "lubridate", "plotly", "skimr", "arrow", "lwgeom"))
+     ```
+   To ensure environment isolation, you may consider using a tool like `renv`.
 
 ### Data Setup
 
@@ -187,11 +188,12 @@ After running the notebooks, you'll find:
 - GitHub: [@carlos9917](https://github.com/carlos9917)
 - Email: [carlos9917@gmail.com]
 
-## pipeline_example
+## 📦 Pipeline Example
 
-Contains an example data pipeline that processes GFS data 
-using 
-- scheduler
-- analysis via R code
+This repository includes a sample data pipeline in the `pipeline_example/` directory. This pipeline demonstrates how to:
+- Schedule and automate data extraction from a source (in this case, GFS data).
+- Process the raw data into a structured format.
+- Perform analysis and generate visualizations using both Python and R.
 
-
+For detailed instructions on how to set up and run this example pipeline, please see the guide:
+- [**How to Run the GFS Wind Power Density Pipeline**](./pipeline_example/howto.md)
