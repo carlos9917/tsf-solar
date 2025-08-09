@@ -848,19 +848,18 @@ final_results['btm_method3'] = results_m3['btm_method3']
 #    0.10 * final_results['btm_method3']
 #)
 #
-# Current: 45% Method 1 + 45% Method 2 + 10% Method 3
-# Recommended: 50% Method 1 + 40% Method 2 + 10% Method 3
+# Original: 45% Method 1 + 45% Method 2 + 10% Method 3
+# Tried: 50% Method 1 + 40% Method 2 + 10% Method 3
 # Quick validation: BTM should correlate with solar radiation
-
+##another test
 final_results['btm_ensemble'] = (
     0.90 * final_results['btm_method1'] +    # Random Forest (most robust)
-    0.05 * final_results['btm_method2'] +    # Ridge (simpler, less overfitting)
+    0.05 * final_results['btm_method2'] +    # Ridge (simpler)
     0.05 * final_results['btm_method3']      # Time series (validation only)
 )
 
 # Quick sanity check for each BTM method individually
 print("=== QUICK BTM SANITY CHECKS ===")
-print("Monthly BTM-Solar Radiation Correlation (should be > 0.7)")
 print("-" * 55)
 
 methods = ['btm_method1', 'btm_method2', 'btm_method3', 'btm_ensemble']
