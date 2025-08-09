@@ -264,43 +264,337 @@ This method looks at the diverging trends between solar and non-solar hour deman
 
 ```{python}
 #| label: method3
-def estimate_btm_time_series(data):
+
+
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+from scipy.optimize import minimize
+import warnings
+warnings.filterwarnings("ignore")
+
+def calculate_degree_days(temperature, heating_base=18, cooling_base=24):
     """
-    Use time series decomposition to identify BTM solar trends.
+    Calculate heating and cooling degree days using standard methodology
+    
+    Parameters:
+    -----------
+    temperature : array-like
+        Temperature values in Celsius
+    heating_base : float
+        Base temperature for heating degree days (default 18°C for Germany)
+    cooling_base : float
+        Base temperature for cooling degree days (default 24°C for Germany)
+    
+    Returns:
+    --------
+    hdd, cdd : tuple of arrays
+        Heating and cooling degree days
+    """
+    temperature = np.array(temperature)  # Fix: ensure temperature is numpy array
+    hdd = np.maximum(heating_base - temperature, 0)
+    cdd = np.maximum(temperature - cooling_base, 0)
+    return hdd, cdd
+
+def find_optimal_base_temperatures(demand, temperature, test_range_heat=(15, 21), test_range_cool=(22, 28)):
+    """
+    Find optimal base temperatures using regression analysis
+    
+    Parameters:
+    -----------
+    demand : array-like
+        Electricity demand values
+    temperature : array-like
+        Temperature values
+    test_range_heat : tuple
+        Range of heating base temperatures to test
+    test_range_cool : tuple
+        Range of cooling base temperatures to test
+    
+    Returns:
+    --------
+    best_bases : tuple
+        Optimal (heating_base, cooling_base)
+    best_r2 : float
+        R-squared of best fit
+    """
+    best_r2 = 0
+    best_bases = (18, 24)  # defaults
+    
+    for heat_base in range(test_range_heat[0], test_range_heat[1] + 1):
+        for cool_base in range(test_range_cool[0], test_range_cool[1] + 1):
+            hdd, cdd = calculate_degree_days(temperature, heat_base, cool_base)
+            
+            # Skip if no variation in degree days
+            if np.std(hdd) < 0.1 and np.std(cdd) < 0.1:
+                continue
+                
+            X = np.column_stack([hdd, cdd, np.ones(len(hdd))])  # include intercept
+            
+            try:
+                model = LinearRegression(fit_intercept=False).fit(X, demand)
+                r2 = model.score(X, demand)
+                
+                if r2 > best_r2:
+                    best_r2 = r2
+                    best_bases = (heat_base, cool_base)
+            except:
+                continue
+    
+    return best_bases, best_r2
+
+def weather_normalize_demand_regression(demand, temperature, heating_base=None, cooling_base=None):
+    """
+    Weather normalize demand using regression-based degree day method
+    
+    Parameters:
+    -----------
+    demand : array-like
+        Electricity demand values
+    temperature : array-like
+        Temperature values in Celsius
+    heating_base : float, optional
+        Heating base temperature (will be optimized if None)
+    cooling_base : float, optional
+        Cooling base temperature (will be optimized if None)
+    
+    Returns:
+    --------
+    normalized_demand : array
+        Weather-normalized demand
+    model_info : dict
+        Information about the fitted model
+    """
+    # Find optimal base temperatures if not provided
+    if heating_base is None or cooling_base is None:
+        (heating_base, cooling_base), r2 = find_optimal_base_temperatures(demand, temperature)
+    
+    # Calculate degree days
+    hdd, cdd = calculate_degree_days(temperature, heating_base, cooling_base)
+    
+    # Fit regression model: demand = baseline + heating_coeff * HDD + cooling_coeff * CDD
+    X = np.column_stack([hdd, cdd, np.ones(len(hdd))])
+    model = LinearRegression(fit_intercept=False).fit(X, demand)
+    
+    # Calculate reference conditions (mild weather with minimal heating/cooling)
+    reference_temp = 20.0  # 20°C as comfortable reference
+    ref_hdd, ref_cdd = calculate_degree_days([reference_temp], heating_base, cooling_base)
+    reference_conditions = np.array([[ref_hdd[0], ref_cdd[0], 1.0]])
+    
+    # Predict demand under reference weather conditions
+    baseline_demand = model.predict(reference_conditions)[0]
+    
+    # Weather effects in actual data
+    weather_effects = model.predict(X) - baseline_demand
+    
+    # Normalized demand removes weather effects
+    normalized_demand = demand - weather_effects
+    
+    model_info = {
+        'heating_base': heating_base,
+        'cooling_base': cooling_base,
+        'r2_score': model.score(X, demand),
+        'coefficients': {
+            'heating_slope': model.coef_[0],
+            'cooling_slope': model.coef_[1], 
+            'baseline': model.coef_[2]
+        },
+        'reference_temp': reference_temp
+    }
+    
+    return normalized_demand, model_info
+
+def estimate_btm_time_series_improved(data, window_days=30):
+    """
+    Improved BTM solar estimation using proper weather normalization and time series analysis
+    
+    Parameters:
+    -----------
+    data : DataFrame
+        Input data with columns: DateTime, demand, temperature_2m, surface_solar_radiation_downwards, is_solar_hours
+    window_days : int
+        Rolling window size in days for trend analysis
+    
+    Returns:
+    --------
+    DataFrame with added columns for BTM estimation
     """
     results = data.copy()
-    window = 30 * 24  # 30 days
+    window_hours = window_days * 24
     
+    # Separate solar and non-solar hour data
     solar_data = data[data['is_solar_hours'] == 1].copy()
     non_solar_data = data[data['is_solar_hours'] == 0].copy()
     
-    # Normalize demand by a simple temperature factor to reduce weather noise
-    solar_data['normalized_demand'] = solar_data['demand'] / (1 + solar_data['temperature_2m'] / 20)
-    non_solar_data['normalized_demand'] = non_solar_data['demand'] / (1 + non_solar_data['temperature_2m'] / 20)
+    print(f"Processing {len(solar_data)} solar hours and {len(non_solar_data)} non-solar hours")
     
-    solar_rolling = solar_data.set_index('DateTime')['normalized_demand'].rolling(window=f'{window}H', min_periods=window//4).mean()
-    non_solar_rolling = non_solar_data.set_index('DateTime')['normalized_demand'].rolling(window=f'{window}H', min_periods=window//4).mean()
+    # Step 1: Weather normalize both datasets using regression method
+    print("Step 1: Weather normalizing solar hour demand...")
+    solar_normalized, solar_model_info = weather_normalize_demand_regression(
+        solar_data['demand'].values, 
+        solar_data['temperature_2m'].values
+    )
+    solar_data['normalized_demand'] = solar_normalized
     
+    print("Step 1: Weather normalizing non-solar hour demand...")
+    non_solar_normalized, non_solar_model_info = weather_normalize_demand_regression(
+        non_solar_data['demand'].values, 
+        non_solar_data['temperature_2m'].values
+    )
+    non_solar_data['normalized_demand'] = non_solar_normalized
+    
+    print(f"Solar hours model R²: {solar_model_info['r2_score']:.3f}")
+    print(f"Non-solar hours model R²: {non_solar_model_info['r2_score']:.3f}")
+    
+    # Step 2: Calculate rolling trends for normalized demand
+    print("Step 2: Calculating demand trends...")
+    solar_indexed = solar_data.set_index('DateTime')
+    non_solar_indexed = non_solar_data.set_index('DateTime')
+    
+    # Use time-based rolling window
+    solar_trend = solar_indexed['normalized_demand'].rolling(
+        window=f'{window_days}D', min_periods=max(1, window_hours//4)
+    ).mean()
+    
+    non_solar_trend = non_solar_indexed['normalized_demand'].rolling(
+        window=f'{window_days}D', min_periods=max(1, window_hours//4)
+    ).mean()
+    
+    # Step 3: Merge trends back to main dataset
     results = results.set_index('DateTime')
-    results['solar_trend'] = solar_rolling
-    results['non_solar_trend'] = non_solar_rolling
-    results = results.reset_index().fillna(method='ffill').fillna(method='bfill')
+    results['solar_trend'] = solar_trend
+    results['non_solar_trend'] = non_solar_trend
+    results = results.reset_index()
     
-    # Assume the initial ratio of solar-to-non-solar demand is the "true" baseline
-    baseline_ratio = results['solar_trend'].iloc[:2000].mean() / results['non_solar_trend'].iloc[:2000].mean()
+    # Forward fill and backward fill missing values
+    results['solar_trend'] = results['solar_trend'].fillna(method='ffill').fillna(method='bfill')
+    results['non_solar_trend'] = results['non_solar_trend'].fillna(method='ffill').fillna(method='bfill')
     
+    # Step 4: Establish baseline relationship using early data (first year)
+    print("Step 3: Establishing baseline solar/non-solar relationship...")
+    early_data_mask = results['DateTime'] <= (results['DateTime'].min() + pd.Timedelta(days=365))
+    early_data = results[early_data_mask]
+    
+    # Calculate baseline ratio with robust statistics (median to avoid outliers)
+    valid_early = early_data.dropna(subset=['solar_trend', 'non_solar_trend'])
+    if len(valid_early) > 100:
+        baseline_ratio = (valid_early['solar_trend'] / valid_early['non_solar_trend']).median()
+    else:
+        baseline_ratio = 1.0  # fallback
+    
+    print(f"Baseline solar/non-solar ratio: {baseline_ratio:.3f}")
+    
+    # Step 5: Calculate expected solar demand based on non-solar trends
     results['expected_solar_demand'] = results['non_solar_trend'] * baseline_ratio
-    btm_effect = np.maximum(results['expected_solar_demand'] - results['solar_trend'], 0)
     
-    # Scale by solar radiation to ensure BTM is zero on cloudy days
-    results['btm_method3'] = btm_effect * (results['surface_solar_radiation_downwards'] / 500)
-    results.loc[results['is_solar_hours'] == 0, 'btm_method3'] = 0
+    # Step 6: Calculate BTM effect as gap between expected and observed trends
+    demand_gap = results['expected_solar_demand'] - results['solar_trend']
+    btm_effect_base = np.maximum(demand_gap, 0)
+    
+    # Step 7: Scale by solar radiation availability (improved scaling)
+    # Use actual solar radiation relative to maximum observed
+    max_solar_radiation = results['surface_solar_radiation_downwards'].quantile(0.95)
+    solar_availability = np.clip(
+        results['surface_solar_radiation_downwards'] / max_solar_radiation, 
+        0, 1
+    )
+    
+    # Apply BTM effect only during solar hours and scale by solar availability
+    results['btm_method3'] = 0.0
+    solar_mask = results['is_solar_hours'] == 1
+    results.loc[solar_mask, 'btm_method3'] = (
+        btm_effect_base[solar_mask] * solar_availability[solar_mask]
+    )
+    
+    # Step 8: Apply smoothing to reduce noise
+    results['btm_method3'] = results['btm_method3'].rolling(
+        window=24, center=True, min_periods=1
+    ).mean()
+    
+    # Ensure non-negative values
+    results['btm_method3'] = np.maximum(results['btm_method3'], 0)
+    
+    # Add model information as attributes
+    results.attrs['solar_model_info'] = solar_model_info
+    results.attrs['non_solar_model_info'] = non_solar_model_info
+    results.attrs['baseline_ratio'] = baseline_ratio
+    results.attrs['window_days'] = window_days
+    
+    print("Step 4: BTM estimation completed successfully!")
     
     return results
 
-# Apply Method 3
-print("=== Method 3: Time Series Decomposition ===")
-results_m3 = estimate_btm_time_series(data_q2_expanded)
+
+# Quick version for comparison
+def estimate_btm_simple(data):
+    """
+    Simplified but improved BTM estimation - quick fix version
+    """
+    results = data.copy()
+    
+    # Simple degree-day based weather normalization
+    temp = results['temperature_2m'].values
+    hdd = np.maximum(18 - temp, 0)  # Heating degree days
+    cdd = np.maximum(temp - 24, 0)  # Cooling degree days
+    
+    # Simple weather adjustment (much better than /20 approach)
+    weather_factor = 1 + 0.01 * hdd + 0.015 * cdd  # Based on literature coefficients
+    
+    # Apply to separate datasets
+    solar_data = results[results['is_solar_hours'] == 1].copy()
+    non_solar_data = results[results['is_solar_hours'] == 0].copy()
+    
+    # Weather normalize using the simple but proper method
+    solar_normalized = solar_data['demand'] / weather_factor[results['is_solar_hours'] == 1]
+    non_solar_normalized = non_solar_data['demand'] / weather_factor[results['is_solar_hours'] == 0]
+    
+    # Rolling trends (30-day window)
+    window = 30 * 24
+    
+    solar_trend = pd.Series(solar_normalized, index=solar_data.index).rolling(
+        window=window, min_periods=window//4
+    ).mean()
+    
+    non_solar_trend = pd.Series(non_solar_normalized, index=non_solar_data.index).rolling(
+        window=window, min_periods=window//4
+    ).mean()
+    
+    # Merge back to main dataset
+    results['solar_trend'] = np.nan
+    results['non_solar_trend'] = np.nan
+    results.loc[solar_data.index, 'solar_trend'] = solar_trend
+    results.loc[non_solar_data.index, 'non_solar_trend'] = non_solar_trend
+    
+    # Forward fill
+    results['solar_trend'] = results['solar_trend'].fillna(method='ffill').fillna(method='bfill')
+    results['non_solar_trend'] = results['non_solar_trend'].fillna(method='ffill').fillna(method='bfill')
+    
+    # Baseline ratio from first 6 months
+    early_mask = results['DateTime'] <= (results['DateTime'].min() + pd.Timedelta(days=180))
+    baseline_ratio = (results.loc[early_mask, 'solar_trend'] / 
+                     results.loc[early_mask, 'non_solar_trend']).median()
+    
+    # Expected vs actual
+    results['expected_solar_demand'] = results['non_solar_trend'] * baseline_ratio
+    demand_gap = results['expected_solar_demand'] - results['solar_trend']
+    demand_gap = np.maximum(demand_gap, 0)
+    
+    # Scale by solar radiation
+    max_solar = results['surface_solar_radiation_downwards'].quantile(0.95)
+    solar_scale = np.clip(results['surface_solar_radiation_downwards'] / max_solar, 0, 1)
+    
+    # Apply only during solar hours
+    results['btm_method3'] = 0.0
+    solar_mask = results['is_solar_hours'] == 1
+    results.loc[solar_mask, 'btm_method3'] = demand_gap[solar_mask] * solar_scale[solar_mask]
+    
+    return results
+#results_m3 = estimate_btm_time_series(data_q2_expanded)
+#results_m3 = estimate_btm_time_series(data_q2_expanded)
+#results_m3 = estimate_btm_time_series_improved(data_q2_expanded)
+results_m3 = estimate_btm_simple(data_q2_expanded)
 
 print("BTM Solar Estimation Summary (Method 3):")
 print(results_m3.groupby('year')['btm_method3'].sum().round(2))
@@ -319,11 +613,67 @@ final_results['btm_method2'] = results_m2['btm_method2']
 final_results['btm_method3'] = results_m3['btm_method3']
 
 # Calculate ensemble estimate (equal weighting for the two primary methods)
+#final_results['btm_ensemble'] = (
+#    0.45 * final_results['btm_method1'] + 
+#    0.45 * final_results['btm_method2'] + 
+#    0.10 * final_results['btm_method3']
+#)
+#
+# Current: 45% Method 1 + 45% Method 2 + 10% Method 3
+# Recommended: 50% Method 1 + 40% Method 2 + 10% Method 3
+# Quick validation: BTM should correlate with solar radiation
+
 final_results['btm_ensemble'] = (
-    0.45 * final_results['btm_method1'] + 
-    0.45 * final_results['btm_method2'] + 
-    0.10 * final_results['btm_method3']
+    0.90 * final_results['btm_method1'] +    # Random Forest (most robust)
+    0.05 * final_results['btm_method2'] +    # Ridge (simpler, less overfitting)
+    0.05 * final_results['btm_method3']      # Time series (validation only)
 )
+
+# Quick sanity check for each BTM method individually
+print("=== QUICK BTM SANITY CHECKS ===")
+print("Monthly BTM-Solar Radiation Correlation (should be > 0.7)")
+print("-" * 55)
+
+methods = ['btm_method1', 'btm_method2', 'btm_method3', 'btm_ensemble']
+
+for method in methods:
+    if method in final_results.columns:
+        # Calculate monthly averages for BTM and solar radiation
+        monthly_stats = final_results.groupby(final_results['DateTime'].dt.month).agg({
+            method: 'mean',
+            'surface_solar_radiation_downwards': 'mean'
+        })
+        
+        # Calculate correlation between monthly BTM and solar radiation
+        correlation = monthly_stats[method].corr(monthly_stats['surface_solar_radiation_downwards'])
+        
+        # Determine status
+        if correlation > 0.7:
+            status = "✓ EXCELLENT"
+        elif correlation > 0.5:
+            status = "✓ GOOD"
+        elif correlation > 0.3:
+            status = "⚠ WEAK"
+        else:
+            status = "✗ POOR"
+        
+        print(f"{method:<15}: {correlation:.3f} {status}")
+
+print("\nInterpretation:")
+print("- > 0.7: Strong seasonal pattern (BTM high in summer, low in winter)")
+print("- 0.5-0.7: Moderate seasonal pattern")
+print("- 0.3-0.5: Weak seasonal pattern") 
+print("- < 0.3: Poor/unrealistic seasonal pattern")
+
+
+# Quick validation: BTM should correlate with solar radiation
+correlation = final_results.groupby(final_results['DateTime'].dt.month).agg({
+    'btm_ensemble': 'mean',
+    'surface_solar_radiation_downwards': 'mean'
+}).corr().iloc[0,1]
+
+print(f"BTM-Solar correlation by month: {correlation:.3f}")
+# Should be > 0.7 for reasonable estimates
 
 # Calculate final "true demand"
 final_results['true_demand'] = final_results['demand'] + final_results['btm_ensemble']

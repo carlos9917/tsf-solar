@@ -1,7 +1,7 @@
 ---
-title: "Improved Solar Power Forecasting with Probabilistic Predictions"
+title: "Solar Power Forecasting with Probabilistic Predictions"
 author: "Carlos Peralta"
-date: "today"
+date: "9 August 2025"
 format: 
   html:
     toc: true
@@ -17,13 +17,9 @@ execute:
 
 ## 1. Executive Summary
 
-This notebook provides an improved approach to forecasting Germany's hourly solar power generation for June 2025, addressing critical issues in the original analysis and adding probabilistic forecasting capabilities. Key improvements include:
-
-- **Fixed data leakage** in validation strategy
-- **Corrected solar position** calculations
-- **Simplified model selection** focusing on the most effective approaches
-- **Added probabilistic forecasting** with prediction intervals
-- **Improved evaluation metrics** for uncertainty quantification
+This notebook provides a probabilistic approach to forecasting Germany's hourly solar power generation for June 2025. The approach
+selects the most effective approaches from the first attempt at modelling the data set, choosing again
+persistence as baseline and using quantile Regression with LightGBM.
 
 ## 2. Setup and Data Loading
 
@@ -63,9 +59,9 @@ print(f"Date range: {data.index.min()} to {data.index.max()}")
 print(f"Missing values: {data.isnull().sum().sum()}")
 ```
 
-## 3. Improved Feature Engineering
+## 3. Feature Engineering
 
-We implement physically accurate solar position calculations and simplified but effective feature engineering.
+We implement physically accurate solar position calculations
 
 ```{python}
 #| label: feature-engineering
@@ -158,7 +154,7 @@ print("\nSample of created features:")
 print(data[['solar_elevation', 'air_mass', 'clear_sky_index', 'temp_efficiency']].describe())
 ```
 
-## 4. Improved Data Splitting Strategy
+## 4. Data Splitting Strategy
 
 We implement a proper train/validation/test split to avoid data leakage.
 
@@ -228,11 +224,11 @@ X_train_early_scaled = scaler.transform(splits['X_train_early'])
 X_val_early_scaled = scaler.transform(splits['X_val_early'])
 ```
 
-## 5. Baseline Model: Improved Persistence
+## 5. Baseline Model: Persistence
 
 ```{python}
 #| label: baseline-model
-class ImprovedPersistenceModel:
+class PersistenceModel:
     """
     Enhanced persistence model using weighted historical patterns
     with consideration for recent trends.
@@ -288,7 +284,7 @@ class ImprovedPersistenceModel:
         return np.array(predictions)
 
 # Train baseline model
-baseline_model = ImprovedPersistenceModel(decay_factor=365)
+baseline_model = PersistenceModel(decay_factor=365)
 baseline_model.fit(splits['train_data'], 'power')
 
 # Generate predictions
@@ -696,3 +692,4 @@ ax3.errorbar(daily_agg.index, daily_agg['power'],
              yerr=[daily_agg['power'] - daily_agg['power_q10'], 
                    daily_agg['power_q90'] - daily_agg['power']],
              fmt='none', color='red', alpha=0.5, capsize=5, label='80% Interval')
+```
