@@ -600,6 +600,235 @@ print("BTM Solar Estimation Summary (Method 3):")
 print(results_m3.groupby('year')['btm_method3'].sum().round(2))
 ```
 
+### Method 4: Weather-Matched Control Groups
+
+
+### Method 4: Analog Weather-Based BTM Estimation
+
+This method applies analog weather principles to electricity demand analysis.
+It identifies 'analog days' with similar meteorological conditions across different years
+and compares their demand patterns to isolate BTM solar effects over time.
+
+Based on analog weather methodology from meteorology/climatology:
+- Uses multi-dimensional weather similarity metrics
+- Employs ensemble of analogs rather than single best match
+- Includes temporal and seasonal constraints
+- Validates analog quality using established meteorological criteria
+
+
+```{python}
+#| label: method4
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import euclidean_distances
+class AnalogWeatherBTMEstimator:
+    """
+    Estimates BTM solar using analog weather methodology from meteorology
+    
+    Based on analog weather principles:
+    - Multi-dimensional weather similarity in standardized space
+    - Ensemble of best analogs rather than single match
+    - Quality control metrics from meteorological literature
+    - Seasonal and temporal constraints
+    """
+    def __init__(self, reference_year=2020, weather_tolerance=1.5, min_matches=10):
+        self.reference_year = reference_year
+        self.weather_tolerance = weather_tolerance
+        self.min_matches = min_matches
+        
+        # Weather variables for analog selection
+        self.weather_features = [
+            'temperature_2m',
+            'relative_humidity_2m',
+            'surface_solar_radiation_downwards'
+        ]
+        
+        self.scaler = StandardScaler()
+        
+    def prepare_daily_data(self, data):
+        """Aggregate hourly data to daily averages with metadata"""
+        daily_data = data.groupby(data['DateTime'].dt.date).agg({
+            'temperature_2m': 'mean',
+            'relative_humidity_2m': 'mean',
+            'surface_solar_radiation_downwards': 'mean',
+            'demand': 'mean',
+            'dayofyear': 'first',
+            'year': 'first',
+            'is_workday': 'mean',
+            'season': lambda x: x.mode()[0] if len(x.mode()) > 0 else x.iloc[0]
+        }).reset_index()
+        
+        # Rename the date column back to DateTime for consistency
+        daily_data.rename(columns={'DateTime': 'date'}, inplace=True)
+        
+        # Add day type classification
+        daily_data['is_mainly_workday'] = (daily_data['is_workday'] > 0.5).astype(int)
+        
+        return daily_data
+        
+    def find_weather_matches(self, daily_data):
+        """Find days with similar weather across different years"""
+        # Find matches between reference year and other years
+        reference_days = daily_data[daily_data['year'] == self.reference_year]
+        matches = []
+        
+        for _, ref_day in reference_days.iterrows():
+            for year in [2021, 2022, 2023, 2024]:
+                year_data = daily_data[
+                    (daily_data['year'] == year) & 
+                    (daily_data['is_mainly_workday'] == ref_day['is_mainly_workday']) &
+                    (abs(daily_data['dayofyear'] - ref_day['dayofyear']) <= 7)
+                ]
+                
+                if len(year_data) == 0:
+                    continue
+                
+                # Calculate weather similarity (normalized distances)
+                temp_diff = (year_data['temperature_2m'] - ref_day['temperature_2m']) / 10
+                humidity_diff = (year_data['relative_humidity_2m'] - ref_day['relative_humidity_2m']) / 20
+                solar_diff = (year_data['surface_solar_radiation_downwards'] - ref_day['surface_solar_radiation_downwards']) / 200
+                
+                weather_distance = np.sqrt(temp_diff**2 + humidity_diff**2 + solar_diff**2)
+                
+                best_match_idx = weather_distance.idxmin()
+                if weather_distance.loc[best_match_idx] < self.weather_tolerance:
+                    matches.append({
+                        'ref_date': ref_day['date'],
+                        'match_date': year_data.loc[best_match_idx, 'date'],
+                        'ref_demand': ref_day['demand'],
+                        'match_demand': year_data.loc[best_match_idx, 'demand'],
+                        'demand_difference': ref_day['demand'] - year_data.loc[best_match_idx, 'demand'],
+                        'match_year': year,
+                        'weather_distance': weather_distance.loc[best_match_idx],
+                        'season': ref_day['season']
+                    })
+        
+        return pd.DataFrame(matches)
+    
+    def calculate_btm_estimates(self, matches_df):
+        """Calculate BTM estimates from weather-matched pairs"""
+        btm_estimates = {}
+        match_quality = {}
+        
+        for year in matches_df['match_year'].unique():
+            year_matches = matches_df[matches_df['match_year'] == year]
+            
+            if len(year_matches) >= self.min_matches:
+                # Use median to reduce outlier impact
+                btm_estimate = year_matches['demand_difference'].median()
+                # BTM can only reduce demand (positive difference)
+                btm_estimate = max(0, btm_estimate)
+                
+                match_quality[year] = {
+                    'n_matches': len(year_matches),
+                    'avg_weather_distance': year_matches['weather_distance'].mean(),
+                    'demand_diff_std': year_matches['demand_difference'].std(),
+                    'seasonal_coverage': year_matches['season'].nunique()
+                }
+            else:
+                btm_estimate = 0
+                match_quality[year] = {
+                    'n_matches': len(year_matches),
+                    'avg_weather_distance': np.nan,
+                    'demand_diff_std': np.nan,
+                    'seasonal_coverage': 0
+                }
+            
+            btm_estimates[year] = btm_estimate
+        
+        return btm_estimates, match_quality
+    
+    def estimate_btm_solar(self, data):
+        """Main method to estimate BTM solar using weather matching"""
+        print(f"=== Method 4: Weather-Matched Control Groups ===")
+        print(f"Using {self.reference_year} as reference year")
+        
+        # Prepare daily aggregated data
+        daily_data = self.prepare_daily_data(data)
+        print(f"Prepared {len(daily_data)} daily observations")
+        
+        # Find weather matches
+        matches_df = self.find_weather_matches(daily_data)
+        print(f"Found {len(matches_df)} weather-matched day pairs")
+        
+        # Calculate BTM estimates
+        btm_estimates, match_quality = self.calculate_btm_estimates(matches_df)
+        
+        # Apply estimates to hourly data
+        results = data.copy()
+        results['btm_method4'] = 0.0
+        
+        for year, daily_btm in btm_estimates.items():
+            if daily_btm > 0:
+                year_mask = (results['year'] == year) & (results['is_solar_hours'] == 1)
+                
+                # Scale daily estimate by solar radiation and hour
+                max_solar = results['surface_solar_radiation_downwards'].quantile(0.95)
+                solar_factor = np.clip(
+                    results['surface_solar_radiation_downwards'] / max_solar, 0, 1
+                )
+                
+                # Apply scaled BTM estimate
+                results.loc[year_mask, 'btm_method4'] = daily_btm * solar_factor[year_mask]
+        
+        # Print diagnostic information
+        print("\nWeather Matching Quality:")
+        for year, quality in match_quality.items():
+            print(f"  {year}: {quality['n_matches']} matches, "
+                  f"avg weather distance: {quality['avg_weather_distance']:.3f}")
+        
+        print(f"\nDaily BTM Estimates (MWh/day):")
+        for year, estimate in btm_estimates.items():
+            print(f"  {year}: {estimate:.1f}")
+        
+        return results, matches_df, match_quality
+
+
+# Apply Method 4
+print("Applying Method 4: Weather-Matched Control Groups...")
+estimator_m4 = AnalogWeatherBTMEstimator(reference_year=2020)
+results_m4, matches_df, match_quality = estimator_m4.estimate_btm_solar(data_q2_expanded)
+
+print("\nBTM Solar Estimation Summary (Method 4):")
+print(results_m4.groupby('year')['btm_method4'].sum().round(2))
+
+# Validation: Compare Method 4 with other methods
+print("\n=== Method 4 Validation ===")
+
+# Calculate correlation with solar radiation (should be positive)
+monthly_stats_m4 = results_m4.groupby(results_m4['DateTime'].dt.month).agg({
+    'btm_method4': 'mean',
+    'surface_solar_radiation_downwards': 'mean'
+})
+
+correlation_m4 = monthly_stats_m4['btm_method4'].corr(
+    monthly_stats_m4['surface_solar_radiation_downwards']
+)
+
+print(f"Method 4 - Monthly BTM-Solar correlation: {correlation_m4:.3f}")
+
+if correlation_m4 > 0.5:
+    print("✓ Good seasonal pattern")
+elif correlation_m4 > 0.3:
+    print("⚠ Moderate seasonal pattern") 
+else:
+    print("✗ Weak seasonal pattern")
+
+
+# Calculate growth rates for Method 4
+#method4_growth = annual_comparison['Method4'].pct_change() * 100
+#print(f"\nMethod 4 Year-over-Year Growth:")
+#for year, growth in method4_growth.items():
+#    if not pd.isna(growth):
+#        print(f"  {year}: {growth:.1f}%")
+#
+## Calculate 2020-2024 total growth for Method 4
+#if 2024 in annual_comparison.index and 2020 in annual_comparison.index:
+#    total_growth_m4 = ((annual_comparison.loc[2024, 'Method4'] / 
+#                       annual_comparison.loc[2020, 'Method4']) - 1) * 100
+#    print(f"\nMethod 4: Total 2020-2024 Growth: {total_growth_m4:.1f}%")
+```
+
+
 ## Comprehensive BTM Solar Analysis
 
 ### Combine Methods and Calculate True Demand
