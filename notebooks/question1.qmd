@@ -1390,7 +1390,6 @@ print("🔧 MAJOR NEW FEATURE: Ensemble forecasting with uncertainty quantificat
 ```{python}
 #| label: final-forecast
 #| echo: true
-
 def generate_final_forecast():
     """
     Generate final forecast for June 2025 with full retraining
@@ -1400,6 +1399,7 @@ def generate_final_forecast():
     - Use best ensemble approach
     - Include uncertainty estimates
     - Proper post-processing
+    - FIX: Handle missing lag features in forecast period
     """
     print("🎯 Generating Final Forecast for June 2025...")
     
@@ -1439,30 +1439,40 @@ def generate_final_forecast():
     june_processed = create_comprehensive_temporal_features(june_processed, target_col=None)
     june_processed = robust_preprocessing(june_processed, target_col=None)
     
-    # Select same features as training
-    forecast_features = [col for col in selected_features if col in june_processed.columns]
-    X_forecast = june_processed[forecast_features].fillna(0)
+    # CRITICAL FIX: Filter out lag features that won't exist in forecast period
+    non_lag_features = [col for col in selected_features 
+                       if not any(keyword in col.lower() for keyword in 
+                                 ['lag', 'rolling', 'ewm', 'seasonal', 'trend'])]
     
-    # Full training data (all available historical data)
-    X_full = pd.concat([X_train, X_val])
-    y_full = pd.concat([y_train, y_val])
+    print(f"   🔧 Filtering out {len(selected_features) - len(non_lag_features)} lag/temporal features")
     
-    # Fit scaler on full training data first
-    scaler_full = RobustScaler()
-    X_full_scaled = scaler_full.fit_transform(X_full)
-    
-    # Then transform forecast data using the same scaler
-    X_forecast_scaled = scaler_full.transform(X_forecast)
+    # Select features that exist in both training and forecast data
+    forecast_features = [col for col in non_lag_features if col in june_processed.columns]
     
     print(f"   🔢 Using {len(forecast_features)} features for prediction")
+    print(f"   📋 Available features: {forecast_features[:10]}..." if len(forecast_features) > 10 else f"   📋 Features: {forecast_features}")
+    
+    # Prepare training data with same features
+    X_full = pd.concat([X_train, X_val])[forecast_features]
+    y_full = pd.concat([y_train, y_val])
+    
+    # Forecast data
+    X_forecast = june_processed[forecast_features].fillna(0)
+    
+    # Fit scaler on full training data with filtered features
+    scaler_full = RobustScaler()
+    X_full_scaled = scaler_full.fit_transform(X_full)
+    X_forecast_scaled = scaler_full.transform(X_forecast)
     
     print("   🔄 Retraining models on full historical dataset...")
-    # Retrain ensemble models
+    
+    # Retrain ensemble models with filtered features
     final_models = {}
     
     # LightGBM
+    print("   🌟 Training final LightGBM...")
     final_lgb = lgb.LGBMRegressor(
-        n_estimators=3000,  # More trees for final model
+        n_estimators=3000,
         learning_rate=0.03,
         max_depth=10,
         num_leaves=150,
@@ -1478,6 +1488,7 @@ def generate_final_forecast():
     final_models['LightGBM'] = final_lgb
     
     # XGBoost
+    print("   🚀 Training final XGBoost...")
     final_xgb = xgb.XGBRegressor(
         n_estimators=3000,
         learning_rate=0.03,
@@ -1493,15 +1504,32 @@ def generate_final_forecast():
     final_models['XGBoost'] = final_xgb
     
     # Neural Network
+    print("   🧠 Training final Neural Network...")
     final_nn = train_enhanced_neural_network(X_full_scaled, y_full, X_full_scaled, y_full)
     final_models['Neural_Network'] = final_nn
     
-    # Create final ensemble
-    final_ensemble = EnsembleForecaster(final_models, weights=model_weights)
+    # Create final ensemble with equal weights (since we can't use original weights)
+    final_weights = [1/len(final_models)] * len(final_models)
+    final_ensemble = EnsembleForecaster(final_models, weights=final_weights)
     
     # Generate forecast with uncertainty
     print("   🔮 Generating final forecast...")
     final_forecast_result = final_ensemble.predict_with_uncertainty(X_forecast_scaled)
+    
+    # Apply physics-based post-processing
+    print("   🔧 Applying physics-based post-processing...")
+    
+    # Ensure nighttime hours have zero power
+    is_night = june_processed['is_daylight'] == 0
+    final_forecast_result['prediction'][is_night] = 0
+    final_forecast_result['confidence_lower'][is_night] = 0
+    final_forecast_result['confidence_upper'][is_night] = 0
+    
+    # Apply reasonable maximum power constraint (e.g., German solar capacity ~60 GW)
+    max_reasonable_power = 50000  # MWh (adjust based on your data scale)
+    final_forecast_result['prediction'] = np.minimum(
+        final_forecast_result['prediction'], max_reasonable_power
+    )
     
     # Create submission DataFrame
     submission_df = pd.DataFrame({
@@ -1515,7 +1543,10 @@ def generate_final_forecast():
         'power': final_forecast_result['prediction'],
         'power_std': final_forecast_result['std'],
         'power_lower_95': final_forecast_result['confidence_lower'],
-        'power_upper_95': final_forecast_result['confidence_upper']
+        'power_upper_95': final_forecast_result['confidence_upper'],
+        'is_daylight': june_processed['is_daylight'],
+        'solar_elevation': june_processed['solar_elevation'],
+        'clear_sky_ghi': june_processed['clear_sky_ghi']
     })
     
     # Save forecasts
@@ -1525,9 +1556,12 @@ def generate_final_forecast():
     print(f"   ✅ Forecast saved to forecast_q1.csv")
     print(f"   📊 Average predicted power: {submission_df['power'].mean():.2f} MWh")
     print(f"   📊 Peak predicted power: {submission_df['power'].max():.2f} MWh")
+    print(f"   📊 Total daily energy (avg): {submission_df['power'].sum() / 30:.2f} MWh/day")
     print(f"   📊 Average uncertainty: {detailed_df['power_std'].mean():.2f} MWh")
+    print(f"   🌙 Nighttime hours (zero power): {sum(is_night)} / {len(is_night)}")
     
     return submission_df, detailed_df, final_forecast_result
+
 
 # Generate final forecast
 submission_df, detailed_df, final_result = generate_final_forecast()
