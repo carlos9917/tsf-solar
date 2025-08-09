@@ -1,7 +1,7 @@
 ---
 title: "Germany Solar Power Forecasting"
 subtitle: "Question 1 - Prediction using Machine Learning Approach with Physics-Informed Features"
-author: "Enhanced Implementation"
+author: "Carlos Peralta"
 date: "`r Sys.Date()`"
 format:
   html:
@@ -29,8 +29,10 @@ It expands the original data set with physics-based features that include:
 - **Solar position calculations** using astronomical methods
 - **Physics-informed feature engineering** with clear sky modeling
 - **Comprehensive temporal features** including lag terms and seasonal decomposition  
+
 The model architecture is implemented with proper regularization and uncertainty quantification,
-with walk-forward validation and comprehensive metrics
+with walk-forward validation and comprehensive metrics.
+This notebooks evaluates
 
 
 ## Setup and Dependencies
