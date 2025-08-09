@@ -1,5 +1,5 @@
 ---
-title: "EDA for Question 1: Solar Power Generation Forecasting (Python)"
+title: "Preliminary EDA for Question 1: Solar Power Generation Forecasting (Python)"
 author: "Carlos Peralta"
 format: html
 jupyter: python3
@@ -13,7 +13,7 @@ lang: en
 
 ## Introduction
 
-This document performs an Exploratory Data Analysis (EDA) for Question 1 of the case study, which focuses on forecasting solar power generation in Germany. We will analyze the provided datasets to understand their structure, identify patterns, and find correlations that will be useful for building a predictive model.
+This document performs a preliminary Exploratory Data Analysis (EDA) for Question 1 of the case study, which focuses on forecasting solar power generation in Germany. We will analyze the provided datasets to understand their structure, identify patterns, and find correlations that will be useful for building a predictive model.
 
 ## Setup
 
