@@ -1,6 +1,6 @@
 ---
-title: "Germany Solar Power Forecasting - Corrected Implementation"
-subtitle: "Question 1 - Enhanced Machine Learning Approach with Physics-Informed Features"
+title: "Germany Solar Power Forecasting"
+subtitle: "Question 1 - Prediction using Machine Learning Approach with Physics-Informed Features"
 author: "Enhanced Implementation"
 date: "`r Sys.Date()`"
 format:
@@ -23,15 +23,15 @@ execute:
 
 ## Executive Summary
 
-This notebook provides a corrected and enhanced implementation for forecasting Germany's hourly solar power generation for June 2025. The original implementation had several critical issues that have been addressed:
+This notebook provides a machine learning implementation for forecasting Germany's hourly solar power generation for June 2025. 
+It expands the original data set with physics-based features that include:
 
-- **Fixed incorrect solar position calculations** using proper astronomical methods
-- **Implemented physics-informed feature engineering** with clear sky modeling
-- **Added comprehensive temporal features** including lag terms and seasonal decomposition  
-- **Enhanced model architecture** with proper regularization and uncertainty quantification
-- **Improved validation strategy** with walk-forward validation and comprehensive metrics
+- **Solar position calculations** using astronomical methods
+- **Physics-informed feature engineering** with clear sky modeling
+- **Comprehensive temporal features** including lag terms and seasonal decomposition  
+The model architecture is implemented with proper regularization and uncertainty quantification,
+with walk-forward validation and comprehensive metrics
 
-Expected improvement: **20-40% better accuracy** compared to the original implementation.
 
 ## Setup and Dependencies
 
@@ -118,19 +118,17 @@ print(f"🔍 Missing values:\n{data.isnull().sum()}")
 display(data.describe())
 ```
 
-## Critical Fix 1: Proper Solar Position Calculations
+## Solar Position Calculations
 
-The original implementation used an incorrect solar elevation formula. We now use proper astronomical calculations.
 
 ```{python}
-#| label: solar-position-fix
+#| label: solar-position
 #| echo: true
 
 def create_accurate_solar_features(data, latitude=51.1657, longitude=10.4515):
     """
     Create accurate solar position features for Germany using PVLib
     
-    FIXES CRITICAL ERROR: Original used wrong solar elevation formula
     """
     print("🌞 Creating accurate solar position features...")
     
@@ -208,10 +206,9 @@ axes[1, 1].grid(True)
 plt.tight_layout()
 plt.show()
 
-print("🔧 CRITICAL FIX APPLIED: Proper solar position calculations")
 ```
 
-## Critical Fix 2: Physics-Based Clear Sky Modeling
+## Physics-Based Clear Sky Modeling
 
 ```{python}
 #| label: clear-sky-modeling
@@ -221,7 +218,6 @@ def create_clear_sky_features(data, latitude=51.1657, longitude=10.4515):
     """
     Create clear sky irradiance features using proper atmospheric modeling
     
-    FIXES MISSING FEATURE: Original had no proper clear sky calculations
     """
     print("☀️ Creating clear sky irradiance features...")
     
@@ -282,10 +278,9 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-print("🔧 CRITICAL FIX APPLIED: Physics-based clear sky modeling")
 ```
 
-## Critical Fix 3: Enhanced Weather Feature Engineering
+## Enhanced Weather Feature Engineering
 
 ```{python}
 #| label: weather-features
@@ -295,7 +290,6 @@ def create_enhanced_weather_features(data):
     """
     Create comprehensive weather-based features with physics-informed interactions
     
-    MAJOR ENHANCEMENT: Original had very limited weather features
     """
     print("🌤️ Creating enhanced weather features...")
     
@@ -340,7 +334,7 @@ def create_enhanced_weather_features(data):
         data['is_daylight']
     )
     
-    # Advanced interaction terms (MISSING in original)
+    # Interaction terms
     data['cloud_temp_interaction'] = data['cloud_factor'] * data['temp_efficiency']
     data['irradiance_weather_interaction'] = data['irradiance_ratio'] * data['weather_factor']
     
@@ -416,11 +410,9 @@ plt.colorbar(im, ax=axes[1, 2])
 
 plt.tight_layout()
 plt.show()
-
-print("🔧 MAJOR ENHANCEMENT APPLIED: Physics-informed weather features")
 ```
 
-## Critical Fix 4: Comprehensive Temporal Features
+## Comprehensive Temporal Features
 
 ```{python}
 #| label: temporal-features
@@ -430,7 +422,6 @@ def create_comprehensive_temporal_features(data, target_col='power'):
     """
     Create comprehensive temporal features including lags and seasonal components
     
-    MAJOR ENHANCEMENT: Original had very limited temporal modeling
     """
     print("📅 Creating comprehensive temporal features...")
     
@@ -452,15 +443,15 @@ def create_comprehensive_temporal_features(data, target_col='power'):
     data['month_sin'] = np.sin(2 * np.pi * data['month'] / 12)
     data['month_cos'] = np.cos(2 * np.pi * data['month'] / 12)
     
-    # Month progress (MISSING in original)
+    # Month progress feature
     data['month_progress'] = (data.index.day - 1) / data.index.days_in_month
     
-    # Season and weekend indicators (MISSING in original)
+    # Season and weekend indicators
     data['is_summer'] = data['month'].isin([6, 7, 8]).astype(int)
     data['is_winter'] = data['month'].isin([12, 1, 2]).astype(int)
     data['is_weekend'] = (data.index.dayofweek >= 5).astype(int)
     
-    # LAG FEATURES - CRITICAL for time series (MISSING in original)
+    # LAG FEATURES - CRITICAL for time series 
     if target_col in data.columns:
         print("   📈 Creating lag features...")
         important_lags = [1, 2, 3, 6, 12, 24, 48, 72, 168]  # Hours
@@ -468,7 +459,7 @@ def create_comprehensive_temporal_features(data, target_col='power'):
         for lag in important_lags:
             data[f'{target_col}_lag_{lag}h'] = data[target_col].shift(lag)
         
-        # Rolling statistics (MISSING in original)
+        # Rolling statistics
         print("   📊 Creating rolling statistics...")
         for window in [6, 24, 168]:  # 6h, 1day, 1week
             data[f'{target_col}_rolling_mean_{window}h'] = (
@@ -481,12 +472,12 @@ def create_comprehensive_temporal_features(data, target_col='power'):
                 data[target_col].rolling(window, min_periods=1).max()
             )
         
-        # Exponentially weighted moving average (MISSING in original)
+        # Exponentially weighted moving average 
         data[f'{target_col}_ewm_24h'] = (
             data[target_col].ewm(span=24, min_periods=1).mean()
         )
         
-        # Seasonal decomposition (MISSING in original)
+        # Seasonal decomposition
         if len(data) > 8760 * 2:  # At least 2 years of data
             print("   🔄 Performing seasonal decomposition...")
             try:
@@ -596,7 +587,6 @@ if 'power' in data.columns:
 plt.tight_layout()
 plt.show()
 
-print("🔧 MAJOR ENHANCEMENT APPLIED: Comprehensive temporal features")
 ```
 
 ## Enhanced Neural Network Architecture
@@ -607,9 +597,8 @@ print("🔧 MAJOR ENHANCEMENT APPLIED: Comprehensive temporal features")
 
 class EnhancedNeuralNetwork(nn.Module):
     """
-    Enhanced neural network with proper architecture
+    Neural network architecture
     
-    MAJOR IMPROVEMENTS from original:
     - Batch normalization for training stability
     - Dropout regularization to prevent overfitting  
     - Proper weight initialization
@@ -662,7 +651,6 @@ def train_enhanced_neural_network(X_train, y_train, X_val, y_val):
     """
     Train neural network with proper training procedures
     
-    IMPROVEMENTS from original:
     - Learning rate scheduling
     - Early stopping with patience
     - Gradient clipping
@@ -745,7 +733,6 @@ def robust_preprocessing(data, target_col='power'):
     """
     Robust data preprocessing with outlier detection
     
-    IMPROVEMENTS from original:
     - Outlier detection and handling
     - Robust scaling less sensitive to outliers
     - Proper missing value imputation
@@ -831,7 +818,6 @@ def select_features(data, target_col='power', correlation_threshold=0.95):
 # Select features
 selected_features = select_features(data_processed)
 
-print("🔧 IMPROVEMENT APPLIED: Robust preprocessing and feature selection")
 ```
 
 ## Enhanced Model Training and Validation
@@ -845,7 +831,7 @@ def create_time_series_splits(data, target_col='power'):
     """
     Create proper time series splits
     
-    CRITICAL FIX: Walk-forward validation to prevent data leakage
+    Walk-forward validation to prevent data leakage
     """
     print("📊 Creating time series data splits...")
     
@@ -922,7 +908,7 @@ predictions_dict = {}
 # 1. Persistence Model (Baseline)
 print("📊 Training Persistence Model (Baseline)...")
 
-class EnhancedPersistenceModel:
+class PersistenceModel:
     """
     Enhanced persistence model with exponential weighting
     Same concept as original but with better implementation
@@ -959,7 +945,7 @@ class EnhancedPersistenceModel:
         return np.maximum(0, predictions)
 
 # Fit and evaluate persistence model
-persistence_model = EnhancedPersistenceModel()
+persistence_model = PersistenceModel()
 persistence_model.fit(train_data)
 persistence_pred = persistence_model.predict(val_data.index)
 models['Persistence'] = persistence_model
@@ -1212,8 +1198,6 @@ print(f"📊 Best R²: {results_df.loc[best_model_name, 'R²']:.4f}")
 #| label: model-evaluation
 #| echo: true
 
-print("🔧 MAJOR IMPROVEMENT: Comprehensive model evaluation with detailed analysis")
-
 # Note: All model predictions are now stored in the predictions_dict created above
 # which includes: Persistence, Ridge, LightGBM, XGBoost, Random_Forest, FFN, LSTM
 ```
@@ -1382,7 +1366,6 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
-print("🔧 MAJOR NEW FEATURE: Ensemble forecasting with uncertainty quantification")
 ```
 
 ## Final Forecast Generation for June 2025
@@ -1394,43 +1377,42 @@ def generate_final_forecast():
     """
     Generate final forecast for June 2025 with full retraining
     
-    IMPROVED PROCESS:
     - Retrain on all available data
     - Use best ensemble approach
     - Include uncertainty estimates
     - Proper post-processing
-    - FIX: Handle missing lag features in forecast period
+    - Handle missing lag features in forecast period
     """
     print("🎯 Generating Final Forecast for June 2025...")
     
     # Load forecast period weather data
-    try:
-        forecast_weather = pd.read_csv("../data/germany_atm_features_q1.csv", 
-                                     parse_dates=['DateTime'])
-        june_weather = forecast_weather[
-            (forecast_weather['DateTime'] >= '2025-06-01') & 
-            (forecast_weather['DateTime'] < '2025-07-01')
-        ].copy().set_index('DateTime')
-        
-        print(f"   📅 Forecast period: {june_weather.index.min()} to {june_weather.index.max()}")
-        print(f"   📊 Forecast hours: {len(june_weather)}")
-        
-    except FileNotFoundError:
-        print("   ⚠️ Using simulated weather data for demonstration")
-        # Create simulated June 2025 weather data
-        june_dates = pd.date_range('2025-06-01', '2025-07-01', freq='H', tz='UTC')[:-1]
-        june_weather = pd.DataFrame({
-            'surface_solar_radiation_downwards': 400 + 300 * np.random.random(len(june_dates)),
-            'temperature_2m': 20 + 10 * np.random.random(len(june_dates)),
-            'total_cloud_cover': 30 + 40 * np.random.random(len(june_dates)),
-            'relative_humidity_2m': 50 + 30 * np.random.random(len(june_dates)),
-            'total_precipitation': 2 * np.random.random(len(june_dates)),
-            'wind_speed_10m': 3 + 5 * np.random.random(len(june_dates)),
-            'wind_speed_100m': 5 + 7 * np.random.random(len(june_dates)),
-            'apparent_temperature': 20 + 10 * np.random.random(len(june_dates)),
-            'snowfall': np.zeros(len(june_dates)),
-            'snow_depth': np.zeros(len(june_dates))
-        }, index=june_dates)
+    #try:
+    forecast_weather = pd.read_csv("../data/germany_atm_features_q1.csv", 
+                                 parse_dates=['DateTime'])
+    june_weather = forecast_weather[
+        (forecast_weather['DateTime'] >= '2025-06-01') & 
+        (forecast_weather['DateTime'] < '2025-07-01')
+    ].copy().set_index('DateTime')
+    
+    print(f"   📅 Forecast period: {june_weather.index.min()} to {june_weather.index.max()}")
+    print(f"   📊 Forecast hours: {len(june_weather)}")
+    
+    #except FileNotFoundError:
+    #    print("   ⚠️ Using simulated weather data for demonstration")
+    #    # Create simulated June 2025 weather data
+    #    june_dates = pd.date_range('2025-06-01', '2025-07-01', freq='H', tz='UTC')[:-1]
+    #    june_weather = pd.DataFrame({
+    #        'surface_solar_radiation_downwards': 400 + 300 * np.random.random(len(june_dates)),
+    #        'temperature_2m': 20 + 10 * np.random.random(len(june_dates)),
+    #        'total_cloud_cover': 30 + 40 * np.random.random(len(june_dates)),
+    #        'relative_humidity_2m': 50 + 30 * np.random.random(len(june_dates)),
+    #        'total_precipitation': 2 * np.random.random(len(june_dates)),
+    #        'wind_speed_10m': 3 + 5 * np.random.random(len(june_dates)),
+    #        'wind_speed_100m': 5 + 7 * np.random.random(len(june_dates)),
+    #        'apparent_temperature': 20 + 10 * np.random.random(len(june_dates)),
+    #        'snowfall': np.zeros(len(june_dates)),
+    #        'snow_depth': np.zeros(len(june_dates))
+    #    }, index=june_dates)
     
     # Apply same feature engineering to forecast period
     june_processed = create_accurate_solar_features(june_weather)
@@ -1439,7 +1421,7 @@ def generate_final_forecast():
     june_processed = create_comprehensive_temporal_features(june_processed, target_col=None)
     june_processed = robust_preprocessing(june_processed, target_col=None)
     
-    # CRITICAL FIX: Filter out lag features that won't exist in forecast period
+    # Filter out lag features that won't exist in forecast period
     non_lag_features = [col for col in selected_features 
                        if not any(keyword in col.lower() for keyword in 
                                  ['lag', 'rolling', 'ewm', 'seasonal', 'trend'])]
@@ -1601,17 +1583,45 @@ def analyze_feature_importance():
     """
     Analyze feature importance to understand model decisions
     
-    NEW FEATURE: Model interpretability analysis
+    Model interpretability analysis
     """
     print("🔍 Analyzing Feature Importance...")
     
-    # Get feature importance from tree-based models
-    lgb_importance = models['Enhanced_LightGBM'].feature_importances_
-    xgb_importance = models['Enhanced_XGBoost'].feature_importances_
+    # Check which models are available
+    print(f"   Available models: {list(models.keys())}")
+    
+    # Get feature importance from tree-based models (use correct keys)
+    if 'LightGBM' in models:
+        lgb_importance = models['LightGBM'].feature_importances_
+    elif 'Enhanced_LightGBM' in models:
+        lgb_importance = models['Enhanced_LightGBM'].feature_importances_
+    else:
+        print("   ⚠️ LightGBM model not found, skipping...")
+        return None
+        
+    if 'XGBoost' in models:
+        xgb_importance = models['XGBoost'].feature_importances_
+    elif 'Enhanced_XGBoost' in models:
+        xgb_importance = models['Enhanced_XGBoost'].feature_importances_
+    else:
+        print("   ⚠️ XGBoost model not found, skipping...")
+        return None
+    
+    # Check if we have the right number of features
+    if len(lgb_importance) != len(selected_features):
+        print(f"   ⚠️ Feature mismatch: {len(lgb_importance)} importances vs {len(selected_features)} features")
+        # Get the actual feature names from the model (if available)
+        if hasattr(models['LightGBM'], 'feature_name_'):
+            actual_features = models['LightGBM'].feature_name_
+        else:
+            # Use available features from training
+            actual_features = [f"feature_{i}" for i in range(len(lgb_importance))]
+    else:
+        actual_features = selected_features
     
     # Create importance DataFrame
     importance_df = pd.DataFrame({
-        'feature': selected_features,
+        'feature': actual_features[:len(lgb_importance)],  # Ensure same length
         'lightgbm_importance': lgb_importance,
         'xgboost_importance': xgb_importance
     })
@@ -1665,9 +1675,19 @@ def analyze_feature_importance():
     return importance_df
 
 # Analyze feature importance
-feature_importance = analyze_feature_importance()
+try:
+    feature_importance = analyze_feature_importance()
+    if feature_importance is not None:
+        print("🔧 NEW FEATURE: Comprehensive feature importance analysis")
+    else:
+        print("⚠️ Feature importance analysis skipped due to missing models")
+except Exception as e:
+    print(f"⚠️ Error in feature importance analysis: {e}")
+    print("Continuing with summary...")
 
-print("🔧 NEW FEATURE: Comprehensive feature importance analysis")
+# Analyze feature importance
+#feature_importance = analyze_feature_importance()
+
 ```
 
 ## Summary and Key Improvements
@@ -1677,53 +1697,6 @@ print("🔧 NEW FEATURE: Comprehensive feature importance analysis")
 #| echo: true
 
 print("="*80)
-print("📋 SUMMARY OF CRITICAL IMPROVEMENTS")
-print("="*80)
-
-improvements = {
-    "Solar Position Calculations": {
-        "Original Problem": "Incorrect solar elevation formula",
-        "Fix Applied": "Proper astronomical calculations using PVLib",
-        "Impact": "20-30% accuracy improvement"
-    },
-    "Clear Sky Modeling": {
-        "Original Problem": "Missing clear sky irradiance calculations", 
-        "Fix Applied": "Physics-based Ineichen clear sky model",
-        "Impact": "Better weather-power relationships"
-    },
-    "Weather Features": {
-        "Original Problem": "Very limited weather interaction modeling",
-        "Fix Applied": "12+ physics-informed weather features",
-        "Impact": "Improved weather impact modeling"
-    },
-    "Temporal Features": {
-        "Original Problem": "Missing lag features and seasonal decomposition",
-        "Fix Applied": "Comprehensive time series features",
-        "Impact": "Better temporal pattern capture"
-    },
-    "Neural Network": {
-        "Original Problem": "Basic architecture without regularization",
-        "Fix Applied": "Enhanced NN with batch norm, dropout, early stopping",
-        "Impact": "More stable and robust training"
-    },
-    "Model Evaluation": {
-        "Original Problem": "Limited metrics and no uncertainty",
-        "Fix Applied": "Comprehensive evaluation with uncertainty quantification",
-        "Impact": "Better model selection and risk assessment"
-    },
-    "Ensemble Methods": {
-        "Original Problem": "Single model approach",
-        "Fix Applied": "Weighted ensemble with uncertainty bands",
-        "Impact": "More robust predictions with confidence intervals"
-    }
-}
-
-for category, details in improvements.items():
-    print(f"\n🔧 {category}:")
-    print(f"   ❌ Problem: {details['Original Problem']}")
-    print(f"   ✅ Solution: {details['Fix Applied']}")
-    print(f"   📈 Impact: {details['Impact']}")
-
 print(f"\n🎯 FINAL RESULTS:")
 print(f"   📊 Best Model: {best_model_name}")
 print(f"   📊 Best RMSE: {results_df.loc[best_model_name, 'RMSE']:.4f} MWh") 
@@ -1741,17 +1714,5 @@ print("="*80)
 
 ## Conclusion
 
-This corrected implementation addresses all major issues in the original notebook:
-
-1. **Fixed critical solar physics errors** using proper astronomical calculations
-2. **Added comprehensive feature engineering** with physics-informed approaches  
-3. **Implemented robust model validation** with walk-forward validation
-4. **Enhanced neural network architecture** with proper regularization
-5. **Added ensemble methods** with uncertainty quantification
-6. **Provided comprehensive evaluation** with solar-specific metrics
-
-The enhanced approach should deliver significantly better forecasting accuracy and provide reliable uncertainty estimates for operational planning.
-
+TODO
 ---
-
-*Generated with enhanced implementation addressing all critical issues in the original solar forecasting notebook.*
