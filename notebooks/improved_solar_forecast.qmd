@@ -1,0 +1,698 @@
+---
+title: "Improved Solar Power Forecasting with Probabilistic Predictions"
+author: "Carlos Peralta"
+date: "today"
+format: 
+  html:
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: show
+    code-tools: true
+jupyter: python3
+execute:
+  echo: true
+  warning: false
+---
+
+## 1. Executive Summary
+
+This notebook provides an improved approach to forecasting Germany's hourly solar power generation for June 2025, addressing critical issues in the original analysis and adding probabilistic forecasting capabilities. Key improvements include:
+
+- **Fixed data leakage** in validation strategy
+- **Corrected solar position** calculations
+- **Simplified model selection** focusing on the most effective approaches
+- **Added probabilistic forecasting** with prediction intervals
+- **Improved evaluation metrics** for uncertainty quantification
+
+## 2. Setup and Data Loading
+
+```{python}
+#| label: setup
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from typing import Dict, Tuple, List, Optional
+import warnings
+warnings.filterwarnings("ignore")
+
+# ML Models
+import lightgbm as lgb
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Set style and seeds
+sns.set_style("whitegrid")
+plt.rcParams['figure.dpi'] = 100
+np.random.seed(42)
+
+# Load data
+print("Loading data...")
+solar_obs = pd.read_csv("../data/germany_solar_observation_q1.csv", parse_dates=['DateTime'])
+atm_features = pd.read_csv("../data/germany_atm_features_q1.csv", parse_dates=['DateTime'])
+
+# Merge and index by DateTime
+data = pd.merge(solar_obs, atm_features, on="DateTime", how="inner")
+data = data.set_index('DateTime')
+data = data.sort_index()
+
+print(f"Dataset shape: {data.shape}")
+print(f"Date range: {data.index.min()} to {data.index.max()}")
+print(f"Missing values: {data.isnull().sum().sum()}")
+```
+
+## 3. Improved Feature Engineering
+
+We implement physically accurate solar position calculations and simplified but effective feature engineering.
+
+```{python}
+#| label: feature-engineering
+def calculate_solar_position(df: pd.DataFrame, latitude: float = 51.5) -> pd.DataFrame:
+    """
+    Calculate accurate solar position features.
+    Germany's approximate latitude: 51.5°N
+    """
+    df = df.copy()
+    
+    # Basic temporal features
+    df['hour'] = df.index.hour
+    df['day_of_year'] = df.index.dayofyear
+    df['month'] = df.index.month
+    df['is_weekend'] = df.index.dayofweek.isin([5, 6]).astype(int)
+    
+    # Solar declination angle (simplified but more accurate)
+    df['declination'] = 23.45 * np.sin(np.radians(360 * (284 + df['day_of_year']) / 365))
+    
+    # Hour angle (degrees from solar noon)
+    df['hour_angle'] = 15 * (df['hour'] - 12)
+    
+    # Solar elevation angle (in radians first)
+    elevation_rad = np.arcsin(
+        np.sin(np.radians(df['declination'])) * np.sin(np.radians(latitude)) +
+        np.cos(np.radians(df['declination'])) * np.cos(np.radians(latitude)) * 
+        np.cos(np.radians(df['hour_angle']))
+    )
+    
+    # Convert to degrees and clip negative values
+    df['solar_elevation'] = np.degrees(elevation_rad)
+    df['solar_elevation'] = np.maximum(0, df['solar_elevation'])
+    
+    # Solar zenith angle (complement of elevation)
+    df['solar_zenith'] = 90 - df['solar_elevation']
+    
+    # Air mass (simplified Kasten-Young formula)
+    # Only calculate when sun is above horizon
+    df['air_mass'] = np.where(
+        df['solar_elevation'] > 0,
+        1 / (np.sin(np.radians(df['solar_elevation'])) + 
+             0.50572 * (df['solar_elevation'] + 6.07995) ** -1.6364),
+        0
+    )
+    # Cap air mass at reasonable value
+    df['air_mass'] = np.minimum(df['air_mass'], 40)
+    
+    return df
+
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create all features including solar position and weather interactions.
+    """
+    # Add solar position features
+    df = calculate_solar_position(df)
+    
+    # Cyclical encoding for temporal features
+    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
+    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
+    df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
+    df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+    
+    # Weather-solar interactions
+    df['clear_sky_index'] = df['surface_solar_radiation_downwards'] * (1 - df['total_cloud_cover'])
+    df['cloud_impact'] = df['total_cloud_cover'] * df['solar_elevation']
+    
+    # Temperature efficiency (solar panels are less efficient at high temperatures)
+    # Optimal around 25°C, decreasing efficiency beyond
+    df['temp_efficiency'] = np.exp(-((df['temperature_2m'] - 25) / 20) ** 2)
+    
+    # Wind cooling effect (helps panel efficiency)
+    df['wind_cooling'] = np.log1p(df['wind_speed_100m']) * df['temperature_2m']
+    
+    # Is daylight (based on solar elevation)
+    df['is_daylight'] = (df['solar_elevation'] > 0).astype(int)
+    
+    # Potential clear sky radiation (theoretical maximum)
+    df['theoretical_max'] = df['solar_elevation'] * 1000 / 90  # Simplified
+    
+    return df
+
+# Apply feature engineering
+print("Creating features...")
+data = create_features(data)
+
+# Display feature statistics
+feature_cols = [col for col in data.columns if col != 'power']
+print(f"Total features created: {len(feature_cols)}")
+print("\nSample of created features:")
+print(data[['solar_elevation', 'air_mass', 'clear_sky_index', 'temp_efficiency']].describe())
+```
+
+## 4. Improved Data Splitting Strategy
+
+We implement a proper train/validation/test split to avoid data leakage.
+
+```{python}
+#| label: data-splitting
+def create_data_splits(data: pd.DataFrame, 
+                       val_start: str = '2025-01-01',
+                       test_start: str = '2025-06-01') -> Dict:
+    """
+    Create proper train/validation/test splits for time series data.
+    """
+    # Define feature columns (exclude target)
+    feature_cols = [
+        'surface_solar_radiation_downwards', 'temperature_2m', 'total_cloud_cover',
+        'relative_humidity_2m', 'apparent_temperature', 'wind_speed_100m',
+        'hour_sin', 'hour_cos', 'month_sin', 'month_cos',
+        'solar_elevation', 'solar_zenith', 'air_mass',
+        'clear_sky_index', 'cloud_impact', 'temp_efficiency', 'wind_cooling',
+        'is_daylight', 'theoretical_max'
+    ]
+    
+    # Filter to available features
+    feature_cols = [col for col in feature_cols if col in data.columns]
+    target_col = 'power'
+    
+    # Split data chronologically
+    train_data = data[data.index < val_start].copy()
+    val_data = data[(data.index >= val_start) & (data.index < test_start)].copy()
+    
+    # For early stopping within training data (last 20% of training)
+    early_stop_start = train_data.index[-int(len(train_data) * 0.2)]
+    train_early = train_data[train_data.index < early_stop_start].copy()
+    val_early = train_data[train_data.index >= early_stop_start].copy()
+    
+    splits = {
+        'X_train': train_data[feature_cols],
+        'y_train': train_data[target_col],
+        'X_val': val_data[feature_cols],
+        'y_val': val_data[target_col],
+        'X_train_early': train_early[feature_cols],
+        'y_train_early': train_early[target_col],
+        'X_val_early': val_early[feature_cols],
+        'y_val_early': val_early[target_col],
+        'feature_cols': feature_cols,
+        'train_data': train_data,
+        'val_data': val_data
+    }
+    
+    return splits
+
+# Create splits
+splits = create_data_splits(data)
+
+print("Data split summary:")
+print(f"Training set: {len(splits['X_train'])} samples ({splits['X_train'].index.min()} to {splits['X_train'].index.max()})")
+print(f"Validation set: {len(splits['X_val'])} samples ({splits['X_val'].index.min()} to {splits['X_val'].index.max()})")
+print(f"Early stopping set: {len(splits['X_val_early'])} samples")
+
+# Initialize and fit scaler on training data only
+scaler = StandardScaler()
+scaler.fit(splits['X_train'])  # Fit only once on training data
+
+# Transform all sets
+X_train_scaled = scaler.transform(splits['X_train'])
+X_val_scaled = scaler.transform(splits['X_val'])
+X_train_early_scaled = scaler.transform(splits['X_train_early'])
+X_val_early_scaled = scaler.transform(splits['X_val_early'])
+```
+
+## 5. Baseline Model: Improved Persistence
+
+```{python}
+#| label: baseline-model
+class ImprovedPersistenceModel:
+    """
+    Enhanced persistence model using weighted historical patterns
+    with consideration for recent trends.
+    """
+    def __init__(self, decay_factor: float = 365):
+        self.decay_factor = decay_factor
+        self.patterns = {}
+        self.monthly_trends = {}
+        
+    def fit(self, data: pd.DataFrame, target_col: str = 'power'):
+        """Fit the model using exponentially weighted historical averages."""
+        # Calculate days from start for weighting
+        days_from_start = (data.index - data.index.min()).days
+        weights = np.exp(days_from_start / self.decay_factor)
+        
+        # Normalize weights to sum to length of data (for numerical stability)
+        weights = weights * len(weights) / weights.to_numpy().sum()
+        # Calculate weighted patterns for each (month, hour) combination
+        data_with_weights = data.copy()
+        data_with_weights['weight'] = weights
+        data_with_weights['weighted_power'] = data_with_weights[target_col] * weights
+        
+        # Group by month and hour
+        grouped = data_with_weights.groupby([data_with_weights.index.month, 
+                                            data_with_weights.index.hour])
+        
+        self.patterns = (grouped['weighted_power'].sum() / grouped['weight'].sum()).to_dict()
+        
+        # Calculate monthly trends (for adjustment)
+        monthly_avg = data_with_weights.groupby(data_with_weights.index.month)[target_col].mean()
+        self.monthly_trends = monthly_avg.to_dict()
+        
+        return self
+    
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Generate predictions based on historical patterns."""
+        predictions = []
+        
+        for timestamp in X.index:
+            month = timestamp.month
+            hour = timestamp.hour
+            
+            # Get base prediction from patterns
+            base_pred = self.patterns.get((month, hour), 0)
+            
+            # Apply slight random variation (±5%) to avoid identical predictions
+            # This simulates natural variability
+            variation = np.random.normal(1.0, 0.05)
+            pred = base_pred * variation
+            
+            predictions.append(max(0, pred))  # Ensure non-negative
+            
+        return np.array(predictions)
+
+# Train baseline model
+baseline_model = ImprovedPersistenceModel(decay_factor=365)
+baseline_model.fit(splits['train_data'], 'power')
+
+# Generate predictions
+y_pred_baseline = baseline_model.predict(splits['X_val'])
+
+# Calculate metrics
+baseline_rmse = np.sqrt(mean_squared_error(splits['y_val'], y_pred_baseline))
+baseline_mae = mean_absolute_error(splits['y_val'], y_pred_baseline)
+baseline_r2 = r2_score(splits['y_val'], y_pred_baseline)
+
+print(f"Baseline Model Performance:")
+print(f"RMSE: {baseline_rmse:.2f} MWh")
+print(f"MAE: {baseline_mae:.2f} MWh")
+print(f"R²: {baseline_r2:.4f}")
+```
+
+## 6. Quantile Regression with LightGBM
+
+We implement quantile regression to generate probabilistic forecasts with prediction intervals.
+
+```{python}
+#| label: quantile-regression
+class QuantileLightGBM:
+    """
+    LightGBM model for quantile regression to generate probabilistic forecasts.
+    """
+    def __init__(self, quantiles: List[float] = [0.1, 0.25, 0.5, 0.75, 0.9]):
+        self.quantiles = quantiles
+        self.models = {}
+        self.base_params = {
+            'boosting_type': 'gbdt',
+            'num_leaves': 64,
+            'learning_rate': 0.03,
+            'feature_fraction': 0.8,
+            'bagging_fraction': 0.8,
+            'bagging_freq': 1,
+            'verbose': -1,
+            'n_jobs': -1,
+            'random_state': 42,
+            'n_estimators': 2000
+        }
+    
+    def fit(self, X_train, y_train, X_val=None, y_val=None):
+        """Train a model for each quantile."""
+        for q in self.quantiles:
+            print(f"Training quantile {q:.2f}...", end=" ")
+            
+            params = self.base_params.copy()
+            params['objective'] = 'quantile'
+            params['alpha'] = q
+            params['metric'] = 'quantile'
+            
+            model = lgb.LGBMRegressor(**params)
+            
+            if X_val is not None and y_val is not None:
+                model.fit(
+                    X_train, y_train,
+                    eval_set=[(X_val, y_val)],
+                    callbacks=[lgb.early_stopping(100, verbose=False)],
+                )
+            else:
+                model.fit(X_train, y_train)
+            
+            self.models[q] = model
+            print(f"Done (best iteration: {model.best_iteration_})")
+        
+        return self
+    
+    def predict(self, X) -> Dict[str, np.ndarray]:
+        """Generate predictions for all quantiles."""
+        predictions = {}
+        for q in self.quantiles:
+            pred = self.models[q].predict(X)
+            predictions[f'q{int(q*100)}'] = np.maximum(0, pred)  # Ensure non-negative
+        return predictions
+    
+    def predict_intervals(self, X, coverage: float = 0.8) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Generate prediction intervals with specified coverage.
+        Returns: (median, lower_bound, upper_bound)
+        """
+        predictions = self.predict(X)
+        
+        # Calculate coverage quantiles
+        alpha = 1 - coverage
+        lower_q = alpha / 2
+        upper_q = 1 - alpha / 2
+        
+        # Find closest available quantiles
+        lower_key = f'q{int(lower_q * 100)}'
+        upper_key = f'q{int(upper_q * 100)}'
+        median_key = 'q50'
+        
+        # Use closest available if exact quantiles not trained
+        if lower_key not in predictions:
+            lower_key = f'q{int(self.quantiles[0] * 100)}'
+        if upper_key not in predictions:
+            upper_key = f'q{int(self.quantiles[-1] * 100)}'
+        
+        return predictions[median_key], predictions[lower_key], predictions[upper_key]
+
+# Train quantile models
+print("\nTraining Quantile LightGBM models...")
+quantile_model = QuantileLightGBM(quantiles=[0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95])
+quantile_model.fit(
+    splits['X_train_early'], 
+    splits['y_train_early'],
+    splits['X_val_early'], 
+    splits['y_val_early']
+)
+
+# Generate probabilistic predictions on validation set
+val_predictions = quantile_model.predict(splits['X_val'])
+
+print("\nQuantile predictions summary:")
+for key in ['q5', 'q50', 'q95']:
+    if key in val_predictions:
+        print(f"{key}: mean={val_predictions[key].mean():.2f}, std={val_predictions[key].std():.2f}")
+```
+
+## 7. Probabilistic Evaluation Metrics
+
+```{python}
+#| label: probabilistic-metrics
+def calculate_pinball_loss(y_true: np.ndarray, y_pred: np.ndarray, quantile: float) -> float:
+    """
+    Calculate pinball loss for a specific quantile.
+    Lower is better.
+    """
+    errors = y_true - y_pred
+    return np.mean(np.maximum(quantile * errors, (quantile - 1) * errors))
+
+def calculate_coverage(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> float:
+    """
+    Calculate the percentage of true values within prediction intervals.
+    """
+    return np.mean((y_true >= lower) & (y_true <= upper))
+
+def calculate_interval_width(lower: np.ndarray, upper: np.ndarray) -> float:
+    """
+    Calculate average width of prediction intervals.
+    """
+    return np.mean(upper - lower)
+
+def evaluate_probabilistic_forecast(y_true: np.ndarray, predictions: Dict[str, np.ndarray]) -> pd.DataFrame:
+    """
+    Comprehensive evaluation of probabilistic forecasts.
+    """
+    metrics = []
+    
+    # Pinball loss for each quantile
+    for q_str, y_pred in predictions.items():
+        if q_str.startswith('q'):
+            q = int(q_str[1:]) / 100
+            pinball = calculate_pinball_loss(y_true, y_pred, q)
+            metrics.append({
+                'Metric': f'Pinball Loss (q={q:.2f})',
+                'Value': pinball
+            })
+    
+    # Coverage for different prediction intervals
+    if 'q5' in predictions and 'q95' in predictions:
+        coverage_90 = calculate_coverage(y_true, predictions['q5'], predictions['q95'])
+        width_90 = calculate_interval_width(predictions['q5'], predictions['q95'])
+        metrics.append({'Metric': '90% Coverage', 'Value': coverage_90})
+        metrics.append({'Metric': '90% Interval Width', 'Value': width_90})
+    
+    if 'q10' in predictions and 'q90' in predictions:
+        coverage_80 = calculate_coverage(y_true, predictions['q10'], predictions['q90'])
+        width_80 = calculate_interval_width(predictions['q10'], predictions['q90'])
+        metrics.append({'Metric': '80% Coverage', 'Value': coverage_80})
+        metrics.append({'Metric': '80% Interval Width', 'Value': width_80})
+    
+    # Point forecast metrics (using median)
+    if 'q50' in predictions:
+        rmse = np.sqrt(mean_squared_error(y_true, predictions['q50']))
+        mae = mean_absolute_error(y_true, predictions['q50'])
+        r2 = r2_score(y_true, predictions['q50'])
+        metrics.append({'Metric': 'RMSE (Median)', 'Value': rmse})
+        metrics.append({'Metric': 'MAE (Median)', 'Value': mae})
+        metrics.append({'Metric': 'R² (Median)', 'Value': r2})
+    
+    return pd.DataFrame(metrics)
+
+# Evaluate probabilistic forecast
+prob_metrics = evaluate_probabilistic_forecast(splits['y_val'].values, val_predictions)
+print("\nProbabilistic Forecast Evaluation:")
+print(prob_metrics.to_string(index=False))
+```
+
+## 8. Visualization of Results
+
+```{python}
+#| label: visualization
+#| fig-cap: "Validation Set Predictions with Uncertainty Bands"
+def plot_probabilistic_forecast(dates, y_true, predictions, title="Probabilistic Forecast", sample_days=7):
+    """
+    Visualize probabilistic forecasts with uncertainty bands.
+    """
+    # Sample a week for detailed visualization
+    end_idx = min(len(dates), 24 * sample_days)
+    dates_sample = dates[:end_idx]
+    y_true_sample = y_true[:end_idx]
+    
+    fig, axes = plt.subplots(2, 1, figsize=(15, 10))
+    
+    # Plot 1: Time series with prediction intervals
+    ax1 = axes[0]
+    
+    # Plot actual values
+    ax1.plot(dates_sample, y_true_sample, 'k-', alpha=0.6, linewidth=1, label='Actual')
+    
+    # Plot median prediction
+    if 'q50' in predictions:
+        ax1.plot(dates_sample, predictions['q50'][:end_idx], 'b-', linewidth=2, label='Median Forecast')
+    
+    # Add prediction intervals
+    if 'q5' in predictions and 'q95' in predictions:
+        ax1.fill_between(dates_sample, 
+                         predictions['q5'][:end_idx], 
+                         predictions['q95'][:end_idx],
+                         alpha=0.2, color='blue', label='90% Interval')
+    
+    if 'q25' in predictions and 'q75' in predictions:
+        ax1.fill_between(dates_sample, 
+                         predictions['q25'][:end_idx], 
+                         predictions['q75'][:end_idx],
+                         alpha=0.3, color='blue', label='50% Interval')
+    
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('Power (MWh)')
+    ax1.set_title(f'{title} - First {sample_days} Days')
+    ax1.legend(loc='upper right')
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Residual analysis
+    ax2 = axes[1]
+    if 'q50' in predictions:
+        residuals = y_true - predictions['q50']
+        
+        # Create hourly averages of residuals
+        hours = pd.DatetimeIndex(dates).hour
+        hourly_residuals = pd.DataFrame({'hour': hours, 'residual': residuals})
+        hourly_avg = hourly_residuals.groupby('hour')['residual'].agg(['mean', 'std'])
+        
+        ax2.bar(hourly_avg.index, hourly_avg['mean'], yerr=hourly_avg['std'], 
+                capsize=5, alpha=0.7, color='coral')
+        ax2.axhline(y=0, color='black', linestyle='--', alpha=0.5)
+        ax2.set_xlabel('Hour of Day')
+        ax2.set_ylabel('Average Residual (MWh)')
+        ax2.set_title('Residual Analysis by Hour')
+        ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    return fig
+
+# Create visualization
+fig = plot_probabilistic_forecast(
+    splits['X_val'].index, 
+    splits['y_val'].values, 
+    val_predictions,
+    title="Validation Set Predictions"
+)
+plt.show()
+```
+
+## 9. Feature Importance Analysis
+
+```{python}
+#| label: feature-importance
+#| fig-cap: "Feature Importance from Quantile Models"
+def analyze_feature_importance(model: QuantileLightGBM, feature_names: List[str], top_n: int = 15):
+    """
+    Analyze and visualize feature importance across quantiles.
+    """
+    # Get importance for median model
+    median_model = model.models[0.5]
+    importance = median_model.feature_importances_
+    
+    # Create importance dataframe
+    importance_df = pd.DataFrame({
+        'feature': feature_names,
+        'importance': importance
+    }).sort_values('importance', ascending=False).head(top_n)
+    
+    # Visualize
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=importance_df, y='feature', x='importance', ax=ax)
+    ax.set_title('Top 15 Most Important Features (Median Model)')
+    ax.set_xlabel('Feature Importance')
+    
+    return importance_df
+
+# Analyze feature importance
+importance_df = analyze_feature_importance(quantile_model, splits['feature_cols'])
+plt.show()
+
+print("\nTop 10 Most Important Features:")
+print(importance_df.head(10).to_string(index=False))
+```
+
+## 10. Final Model Training and June 2025 Forecast
+
+```{python}
+#| label: final-forecast
+print("Training final model on all available data...")
+
+# Combine all historical data for final training
+X_full = pd.concat([splits['X_train'], splits['X_val']])
+y_full = pd.concat([splits['y_train'], splits['y_val']])
+
+# Train final quantile model
+final_model = QuantileLightGBM(quantiles=[0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95])
+final_model.fit(X_full, y_full)
+
+print("\nPreparing June 2025 data...")
+
+# Load and prepare June 2025 data
+june_features = atm_features[(atm_features['DateTime'] >= '2025-06-01') & 
+                             (atm_features['DateTime'] < '2025-07-01')].copy()
+june_features = june_features.set_index('DateTime')
+june_features = create_features(june_features)
+
+# Use the same features as training
+X_june = june_features[splits['feature_cols']]
+
+# Generate probabilistic predictions
+print("Generating probabilistic forecast for June 2025...")
+june_predictions = final_model.predict(X_june)
+
+# Create submission dataframe with probabilistic outputs
+submission_df = pd.DataFrame({
+    'DateTime': X_june.index,
+    'power': june_predictions['q50'],  # Median as point forecast
+    'power_q5': june_predictions['q5'],
+    'power_q10': june_predictions['q10'],
+    'power_q25': june_predictions['q25'],
+    'power_q75': june_predictions['q75'],
+    'power_q90': june_predictions['q90'],
+    'power_q95': june_predictions['q95']
+})
+
+# Save primary submission (median forecast)
+submission_df[['DateTime', 'power']].to_csv('forecast_improved.csv', index=False)
+
+# Save full probabilistic forecast
+submission_df.to_csv('forecast_probabilistic.csv', index=False)
+
+print(f"\nForecast generated successfully!")
+print(f"Point forecast saved to: forecast_improved.csv")
+print(f"Probabilistic forecast saved to: forecast_probabilistic.csv")
+print(f"\nForecast summary for June 2025:")
+print(f"Mean predicted power: {submission_df['power'].mean():.2f} MWh")
+print(f"Max predicted power: {submission_df['power'].max():.2f} MWh")
+print(f"Total predicted generation: {submission_df['power'].sum():.2f} MWh")
+```
+
+## 11. Visualization of June 2025 Forecast
+
+```{python}
+#| label: june-visualization
+#| fig-cap: "Probabilistic Forecast for June 2025"
+fig, axes = plt.subplots(3, 1, figsize=(15, 12))
+
+# Plot 1: Full month with uncertainty bands
+ax1 = axes[0]
+ax1.plot(submission_df['DateTime'], submission_df['power'], 'b-', linewidth=2, label='Median Forecast')
+ax1.fill_between(submission_df['DateTime'], 
+                  submission_df['power_q5'], 
+                  submission_df['power_q95'],
+                  alpha=0.2, color='blue', label='90% Prediction Interval')
+ax1.fill_between(submission_df['DateTime'], 
+                  submission_df['power_q25'], 
+                  submission_df['power_q75'],
+                  alpha=0.3, color='blue', label='50% Prediction Interval')
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Power (MWh)')
+ax1.set_title('June 2025 Solar Power Forecast with Uncertainty Bands')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Plot 2: First week detailed view
+ax2 = axes[1]
+first_week = submission_df[:7*24]
+ax2.plot(first_week['DateTime'], first_week['power'], 'g-', linewidth=2, label='Median')
+ax2.fill_between(first_week['DateTime'], 
+                  first_week['power_q10'], 
+                  first_week['power_q90'],
+                  alpha=0.3, color='green', label='80% Interval')
+ax2.set_xlabel('Date')
+ax2.set_ylabel('Power (MWh)')
+ax2.set_title('First Week of June 2025 - Detailed View')
+ax2.legend()
+ax2.grid(True, alpha=0.3)
+
+# Plot 3: Daily aggregation with uncertainty
+ax3 = axes[2]
+daily_agg = submission_df.set_index('DateTime').resample('D').agg({
+    'power': 'sum',
+    'power_q10': 'sum',
+    'power_q90': 'sum'
+})
+ax3.bar(daily_agg.index, daily_agg['power'], alpha=0.6, label='Daily Total (Median)')
+ax3.errorbar(daily_agg.index, daily_agg['power'], 
+             yerr=[daily_agg['power'] - daily_agg['power_q10'], 
+                   daily_agg['power_q90'] - daily_agg['power']],
+             fmt='none', color='red', alpha=0.5, capsize=5, label='80% Interval')

@@ -1,7 +1,7 @@
 ---
 title: "Germany Solar Power Forecasting - Corrected Implementation"
 subtitle: "Question 1 - Enhanced Machine Learning Approach with Physics-Informed Features"
-author: "Carlos Peralta"
+author: "Enhanced Implementation"
 date: "`r Sys.Date()`"
 format:
   html:
@@ -917,6 +917,7 @@ def comprehensive_evaluation(y_true, y_pred, model_name):
 # Initialize results storage
 results = {}
 models = {}
+predictions_dict = {}
 
 # 1. Persistence Model (Baseline)
 print("📊 Training Persistence Model (Baseline)...")
@@ -1232,7 +1233,11 @@ class EnsembleForecaster:
     
     def __init__(self, models, weights=None):
         self.models = models
-        self.weights = weights or [1/len(models)] * len(models)
+        # Fix: Properly handle numpy array weights
+        if weights is not None:
+            self.weights = weights
+        else:
+            self.weights = [1/len(models)] * len(models)
         self.individual_predictions = {}
         
     def predict_with_uncertainty(self, X):
@@ -1437,18 +1442,21 @@ def generate_final_forecast():
     # Select same features as training
     forecast_features = [col for col in selected_features if col in june_processed.columns]
     X_forecast = june_processed[forecast_features].fillna(0)
-    X_forecast_scaled = scaler.transform(X_forecast)
-    
-    print(f"   🔢 Using {len(forecast_features)} features for prediction")
-    
-    # Retrain models on full historical dataset
-    print("   🔄 Retraining models on full historical dataset...")
     
     # Full training data (all available historical data)
     X_full = pd.concat([X_train, X_val])
     y_full = pd.concat([y_train, y_val])
-    X_full_scaled = scaler.fit_transform(X_full)
     
+    # Fit scaler on full training data first
+    scaler_full = RobustScaler()
+    X_full_scaled = scaler_full.fit_transform(X_full)
+    
+    # Then transform forecast data using the same scaler
+    X_forecast_scaled = scaler_full.transform(X_forecast)
+    
+    print(f"   🔢 Using {len(forecast_features)} features for prediction")
+    
+    print("   🔄 Retraining models on full historical dataset...")
     # Retrain ensemble models
     final_models = {}
     
