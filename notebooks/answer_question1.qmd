@@ -628,14 +628,14 @@ submission_df = pd.DataFrame({
 })
 
 # Save primary submission (median forecast)
-submission_df[['DateTime', 'power']].to_csv('forecast_improved.csv', index=False)
+submission_df[['DateTime', 'power']].to_csv('forecast_q1.csv', index=False)
 
 # Save full probabilistic forecast
-submission_df.to_csv('forecast_probabilistic.csv', index=False)
+submission_df.to_csv('forecast_q1_probabilistic.csv', index=False)
 
 print(f"\nForecast generated successfully!")
-print(f"Point forecast saved to: forecast_improved.csv")
-print(f"Probabilistic forecast saved to: forecast_probabilistic.csv")
+print(f"Point forecast saved to: forecast_q1.csv")
+print(f"Probabilistic forecast saved to: forecast_q1_probabilistic.csv")
 print(f"\nForecast summary for June 2025:")
 print(f"Mean predicted power: {submission_df['power'].mean():.2f} MWh")
 print(f"Max predicted power: {submission_df['power'].max():.2f} MWh")
