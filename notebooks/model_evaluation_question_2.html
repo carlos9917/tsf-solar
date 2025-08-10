@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.32">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Carlos Peralta">
+<meta name="dcterms.date" content="2025-08-07">
+
+<title>Question 2: Detecting True Demand Growth in a Solar-Rich Energy System</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="model_evaluation_question_2_files/libs/clipboard/clipboard.min.js"></script>
+<script src="model_evaluation_question_2_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="model_evaluation_question_2_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="model_evaluation_question_2_files/libs/quarto-html/popper.min.js"></script>
+<script src="model_evaluation_question_2_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="model_evaluation_question_2_files/libs/quarto-html/anchor.min.js"></script>
+<link href="model_evaluation_question_2_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="model_evaluation_question_2_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="model_evaluation_question_2_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="model_evaluation_question_2_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="model_evaluation_question_2_files/libs/bootstrap/bootstrap-9810da5fa7c545808853ae26390bbe04.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Question 2: Detecting True Demand Growth in a Solar-Rich Energy System</h1>
+<p class="subtitle lead">Model evaluation</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Carlos Peralta </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">August 7, 2025</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">August 10, 2025</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>This notebook addresses Question 2 of the meteorological data scientist case study. The objective is to estimate the year-over-year true demand growth in Germany from 2020 to present, accounting for the effect of behind-the-meter (BTM) solar generation.</p>
+<section id="key-questions-to-address" class="level3">
+<h3 class="anchored" data-anchor-id="key-questions-to-address">Key Questions to Address</h3>
+<ol type="1">
+<li>How can we isolate the effect of BTM solar generation on observed demand?</li>
+<li>Can we estimate what demand would have been during solar hours without rooftop solar?</li>
+<li>What is the difference between projected demand and observed demand?</li>
+<li>How has BTM solar generation evolved from 2020 to present?</li>
+<li>What is the year-over-year growth in <em>true</em> demand?</li>
+</ol>
+<p>In order to answer these questions we will do some feature engineering and then build multiple estimation methods based on weather (baseline), regression and time series decomposition. Based on this comparison we will select a particular model or an ensemble of them to answer the questions in the next notebook (<code>answer_question_2.qmd</code>).</p>
+</section>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<div id="cell-setup" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> plotly.express <span class="im">as</span> px</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> plotly.graph_objects <span class="im">as</span> go</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> plotly.subplots <span class="im">import</span> make_subplots</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> StandardScaler</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.linear_model <span class="im">import</span> Ridge</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.ensemble <span class="im">import</span> RandomForestRegressor</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics <span class="im">import</span> mean_absolute_error, mean_squared_error, r2_score</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> holidays</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rich <span class="im">import</span> <span class="bu">print</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">"ignore"</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Set plotting style</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>plt.style.use(<span class="st">'seaborn-v0_8'</span>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>sns.set_palette(<span class="st">"husl"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Libraries loaded successfully"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="setup" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Libraries loaded successfully
+</pre>
+</div>
+</div>
+</section>
+<section id="data-loading-and-initial-exploration" class="level2">
+<h2 class="anchored" data-anchor-id="data-loading-and-initial-exploration">Data Loading and Initial Exploration</h2>
+<p>We loads merge and prepares the data.</p>
+<div id="load-data" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the three datasets for Question 2</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>demand_q2 <span class="op">=</span> pd.read_csv(<span class="st">"../data/germany_electricity_demand_observation_q2.csv"</span>, parse_dates<span class="op">=</span>[<span class="st">'DateTime'</span>])</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>solar_q2 <span class="op">=</span> pd.read_csv(<span class="st">"../data/germany_solar_observation_q2.csv"</span>, parse_dates<span class="op">=</span>[<span class="st">'DateTime'</span>])</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>atm_q2 <span class="op">=</span> pd.read_csv(<span class="st">"../data/germany_atm_features_q2.csv"</span>, parse_dates<span class="op">=</span>[<span class="st">'DateTime'</span>])</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge all datasets</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>data_q2 <span class="op">=</span> pd.merge(demand_q2, solar_q2, on<span class="op">=</span><span class="st">"DateTime"</span>, how<span class="op">=</span><span class="st">"inner"</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>data_q2 <span class="op">=</span> pd.merge(data_q2, atm_q2, on<span class="op">=</span><span class="st">"DateTime"</span>, how<span class="op">=</span><span class="st">"inner"</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Merged data shape: </span><span class="sc">{</span>data_q2<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Merged data range: </span><span class="sc">{</span>data_q2[<span class="st">'DateTime'</span>]<span class="sc">.</span><span class="bu">min</span>()<span class="sc">}</span><span class="ss"> to </span><span class="sc">{</span>data_q2[<span class="st">'DateTime'</span>]<span class="sc">.</span><span class="bu">max</span>()<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="load-data-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Merged data shape: <span style="font-weight: bold">(</span><span style="color: #008080; text-decoration-color: #008080; font-weight: bold">47472</span>, <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">13</span><span style="font-weight: bold">)</span>
+</pre>
+</div>
+<div id="load-data-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Merged data range: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">01</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">01</span> <span style="color: #00ff00; text-decoration-color: #00ff00; font-weight: bold">00:00:00</span>+<span style="color: #00ff00; text-decoration-color: #00ff00; font-weight: bold">00:00</span> to <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">05</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">31</span> <span style="color: #00ff00; text-decoration-color: #00ff00; font-weight: bold">23:00:00</span>+<span style="color: #00ff00; text-decoration-color: #00ff00; font-weight: bold">00:00</span>
+</pre>
+</div>
+</div>
+</section>
+<section id="feature-engineering" class="level2">
+<h2 class="anchored" data-anchor-id="feature-engineering">Feature Engineering</h2>
+<p>In the following section we create a rich set of temporal and weather-related features, which are crucial for demand modeling.</p>
+<div id="feature-engineering" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add_temporal_features(df):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add comprehensive temporal features for analysis"""</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> df.copy()</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Basic time features</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'year'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.year</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'month'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.month</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'day'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.day</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'hour'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.hour</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'dayofweek'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.dayofweek</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'dayofyear'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.dayofyear</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'quarter'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.quarter</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Season classification</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'season'</span>] <span class="op">=</span> df[<span class="st">'month'</span>].<span class="bu">map</span>({</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="dv">12</span>: <span class="st">'Winter'</span>, <span class="dv">1</span>: <span class="st">'Winter'</span>, <span class="dv">2</span>: <span class="st">'Winter'</span>,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="dv">3</span>: <span class="st">'Spring'</span>, <span class="dv">4</span>: <span class="st">'Spring'</span>, <span class="dv">5</span>: <span class="st">'Spring'</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="dv">6</span>: <span class="st">'Summer'</span>, <span class="dv">7</span>: <span class="st">'Summer'</span>, <span class="dv">8</span>: <span class="st">'Summer'</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="dv">9</span>: <span class="st">'Autumn'</span>, <span class="dv">10</span>: <span class="st">'Autumn'</span>, <span class="dv">11</span>: <span class="st">'Autumn'</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Solar hours classification (more conservative: 7 AM to 7 PM)</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'is_solar_hours'</span>] <span class="op">=</span> ((df[<span class="st">'hour'</span>] <span class="op">&gt;=</span> <span class="dv">7</span>) <span class="op">&amp;</span> (df[<span class="st">'hour'</span>] <span class="op">&lt;=</span> <span class="dv">19</span>)).astype(<span class="bu">int</span>)</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'is_peak_solar'</span>] <span class="op">=</span> ((df[<span class="st">'hour'</span>] <span class="op">&gt;=</span> <span class="dv">10</span>) <span class="op">&amp;</span> (df[<span class="st">'hour'</span>] <span class="op">&lt;=</span> <span class="dv">14</span>)).astype(<span class="bu">int</span>)</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Weekend indicator</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'is_weekend'</span>] <span class="op">=</span> (df[<span class="st">'dayofweek'</span>] <span class="op">&gt;=</span> <span class="dv">5</span>).astype(<span class="bu">int</span>)</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add German holiday calendar ---</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    de_holidays <span class="op">=</span> holidays.Germany(years<span class="op">=</span>np.arange(<span class="dv">2020</span>, <span class="dv">2026</span>))</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'is_holiday'</span>] <span class="op">=</span> df[<span class="st">'DateTime'</span>].dt.date.astype(<span class="st">'datetime64[ns]'</span>).isin(de_holidays).astype(<span class="bu">int</span>)</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Treat holidays like weekends for modeling purposes</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'is_workday'</span>] <span class="op">=</span> ((df[<span class="st">'is_weekend'</span>] <span class="op">==</span> <span class="dv">0</span>) <span class="op">&amp;</span> (df[<span class="st">'is_holiday'</span>] <span class="op">==</span> <span class="dv">0</span>)).astype(<span class="bu">int</span>)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Cyclical encoding for better model performance</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'hour_sin'</span>] <span class="op">=</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> df[<span class="st">'hour'</span>] <span class="op">/</span> <span class="dv">24</span>)</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'hour_cos'</span>] <span class="op">=</span> np.cos(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> df[<span class="st">'hour'</span>] <span class="op">/</span> <span class="dv">24</span>)</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'dayofyear_sin'</span>] <span class="op">=</span> np.sin(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> df[<span class="st">'dayofyear'</span>] <span class="op">/</span> <span class="dv">365</span>)</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">'dayofyear_cos'</span>] <span class="op">=</span> np.cos(<span class="dv">2</span> <span class="op">*</span> np.pi <span class="op">*</span> df[<span class="st">'dayofyear'</span>] <span class="op">/</span> <span class="dv">365</span>)</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> df</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply feature engineering</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>data_q2_expanded <span class="op">=</span> add_temporal_features(data_q2)</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Feature engineering completed."</span>)</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Number of holidays identified: </span><span class="sc">{</span>data_q2_expanded[<span class="st">'is_holiday'</span>]<span class="sc">.</span><span class="bu">sum</span>()<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="feature-engineering-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Feature engineering completed.
+</pre>
+</div>
+<div id="feature-engineering-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Number of holidays identified: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1200</span>
+</pre>
+</div>
+</div>
+</section>
+<section id="btm-solar-estimation-methods" class="level2">
+<h2 class="anchored" data-anchor-id="btm-solar-estimation-methods">BTM Solar Estimation Methods</h2>
+<section id="method-1-demand-gap-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="method-1-demand-gap-analysis">Method 1: Demand Gap Analysis</h3>
+<p>This method learns a “normal” demand pattern from hours with no solar generation and uses it to predict what demand <em>should have been</em> during solar hours. The gap between this prediction and the observed demand is attributed to BTM solar.</p>
+<div id="method1" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DemandGapBTMEstimator:</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Estimates BTM solar by modeling baseline demand from non-solar hours.</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scaler <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.feature_names <span class="op">=</span> [</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">'temperature_2m'</span>, <span class="st">'apparent_temperature'</span>, <span class="st">'relative_humidity_2m'</span>,</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">'hour_sin'</span>, <span class="st">'hour_cos'</span>, <span class="st">'dayofyear_sin'</span>, <span class="st">'dayofyear_cos'</span>,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">'is_workday'</span>, <span class="st">'year'</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fit(<span class="va">self</span>, data):</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Fit a demand model exclusively on non-solar hour data."""</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Train only on non-solar hours</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        train_data <span class="op">=</span> data[data[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">0</span>].copy()</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        X_train <span class="op">=</span> train_data[<span class="va">self</span>.feature_names]</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        y_train <span class="op">=</span> train_data[<span class="st">'demand'</span>]</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scaler <span class="op">=</span> StandardScaler()</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        X_train_scaled <span class="op">=</span> <span class="va">self</span>.scaler.fit_transform(X_train)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Use a robust RandomForest model</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model <span class="op">=</span> RandomForestRegressor(</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>            n_estimators<span class="op">=</span><span class="dv">100</span>, random_state<span class="op">=</span><span class="dv">42</span>, n_jobs<span class="op">=-</span><span class="dv">1</span>, min_samples_leaf<span class="op">=</span><span class="dv">10</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model.fit(X_train_scaled, y_train)</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> estimate_btm_solar(<span class="va">self</span>, data):</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Estimate BTM solar as the gap between predicted and observed demand."""</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        results <span class="op">=</span> data.copy()</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        X_all <span class="op">=</span> results[<span class="va">self</span>.feature_names]</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>        X_all_scaled <span class="op">=</span> <span class="va">self</span>.scaler.transform(X_all)</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Predict what demand should have been across all hours</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        predicted_baseline_demand <span class="op">=</span> <span class="va">self</span>.demand_model.predict(X_all_scaled)</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="co"># The gap is the difference, floored at zero</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        demand_gap <span class="op">=</span> predicted_baseline_demand <span class="op">-</span> results[<span class="st">'demand'</span>]</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        demand_gap <span class="op">=</span> np.maximum(demand_gap, <span class="dv">0</span>)</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>        <span class="co"># BTM solar only exists during solar hours</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        results[<span class="st">'btm_method1'</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>        solar_mask <span class="op">=</span> results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>        results.loc[solar_mask, <span class="st">'btm_method1'</span>] <span class="op">=</span> demand_gap[solar_mask]</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> results</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply Method 1</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"=== Method 1: Demand Gap Analysis ==="</span>)</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>estimator_m1 <span class="op">=</span> DemandGapBTMEstimator()</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>estimator_m1.fit(data_q2_expanded)</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>results_m1 <span class="op">=</span> estimator_m1.estimate_btm_solar(data_q2_expanded)</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"BTM Solar Estimation Summary (Method 1):"</span>)</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(results_m1.groupby(<span class="st">'year'</span>)[<span class="st">'btm_method1'</span>].<span class="bu">sum</span>().<span class="bu">round</span>(<span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="method1-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1</span>: Demand Gap Analysis ===
+</pre>
+</div>
+<div id="method1-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">BTM Solar Estimation Summary <span style="font-weight: bold">(</span>Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1</span><span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="method1-3" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">year
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">354715.97</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">349281.97</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">314281.37</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">617036.60</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">591488.34</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">427864.16</span>
+Name: btm_method1, dtype: float64
+</pre>
+</div>
+</div>
+</section>
+<section id="method-2-unbiased-regression-decomposition" class="level3">
+<h3 class="anchored" data-anchor-id="method-2-unbiased-regression-decomposition">Method 2: Unbiased Regression Decomposition</h3>
+<p>This method uses a simple Ridge regression model, trained only on non-solar hour data to prevent the model from learning the BTM-suppressed demand as “normal”. This removes a possible source of bias.</p>
+<div id="method2" class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> UnbiasedRegressionBTMEstimator:</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Uses Ridge regression trained only on non-solar hours to estimate BTM.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scaler <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.feature_names <span class="op">=</span> [</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">'temperature_2m'</span>, <span class="st">'apparent_temperature'</span>, <span class="st">'relative_humidity_2m'</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">'hour_sin'</span>, <span class="st">'hour_cos'</span>, <span class="st">'dayofyear_sin'</span>, <span class="st">'dayofyear_cos'</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">'is_workday'</span>, <span class="st">'year'</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fit(<span class="va">self</span>, data):</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Fit a Ridge regression model exclusively on non-solar hour data."""</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Train only on non-solar hours ---</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        train_data <span class="op">=</span> data[data[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">0</span>].copy()</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        X_train <span class="op">=</span> train_data[<span class="va">self</span>.feature_names]</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        y_train <span class="op">=</span> train_data[<span class="st">'demand'</span>]</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scaler <span class="op">=</span> StandardScaler()</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        X_train_scaled <span class="op">=</span> <span class="va">self</span>.scaler.fit_transform(X_train)</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model <span class="op">=</span> Ridge(alpha<span class="op">=</span><span class="fl">1.0</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.demand_model.fit(X_train_scaled, y_train)</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> estimate_btm_solar(<span class="va">self</span>, data):</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Estimate BTM solar as the gap between predicted and observed demand."""</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        results <span class="op">=</span> data.copy()</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        X_all <span class="op">=</span> results[<span class="va">self</span>.feature_names]</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        X_all_scaled <span class="op">=</span> <span class="va">self</span>.scaler.transform(X_all)</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        predicted_baseline_demand <span class="op">=</span> <span class="va">self</span>.demand_model.predict(X_all_scaled)</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>        demand_gap <span class="op">=</span> predicted_baseline_demand <span class="op">-</span> results[<span class="st">'demand'</span>]</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>        demand_gap <span class="op">=</span> np.maximum(demand_gap, <span class="dv">0</span>)</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>        results[<span class="st">'btm_method2'</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>        solar_mask <span class="op">=</span> results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>        results.loc[solar_mask, <span class="st">'btm_method2'</span>] <span class="op">=</span> demand_gap[solar_mask]</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> results</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply Method 2</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"=== Method 2: Unbiased Regression Decomposition ==="</span>)</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>estimator_m2 <span class="op">=</span> UnbiasedRegressionBTMEstimator()</span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>estimator_m2.fit(data_q2_expanded)</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>results_m2 <span class="op">=</span> estimator_m2.estimate_btm_solar(data_q2_expanded)</span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"BTM Solar Estimation Summary (Method 2):"</span>)</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(results_m2.groupby(<span class="st">'year'</span>)[<span class="st">'btm_method2'</span>].<span class="bu">sum</span>().<span class="bu">round</span>(<span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="method2-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2</span>: Unbiased Regression Decomposition ===
+</pre>
+</div>
+<div id="method2-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">BTM Solar Estimation Summary <span style="font-weight: bold">(</span>Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2</span><span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="method2-3" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">year
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">48106824.40</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">37182300.91</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">44290422.27</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">54717474.37</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">48896975.77</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">19702592.02</span>
+Name: btm_method2, dtype: float64
+</pre>
+</div>
+</div>
+</section>
+<section id="method-3-time-series-decomposition" class="level3">
+<h3 class="anchored" data-anchor-id="method-3-time-series-decomposition">Method 3: Time Series Decomposition</h3>
+<p>This method looks at the diverging trends between solar and non-solar hour demand over time.</p>
+<div id="method3" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.linear_model <span class="im">import</span> LinearRegression</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> StandardScaler</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics <span class="im">import</span> r2_score</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.optimize <span class="im">import</span> minimize</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">"ignore"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calculate_degree_days(temperature, heating_base<span class="op">=</span><span class="dv">18</span>, cooling_base<span class="op">=</span><span class="dv">24</span>):</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">    Calculate heating and cooling degree days using standard methodology</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">    Parameters:</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">    -----------</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">    temperature : array-like</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">        Temperature values in Celsius</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">    heating_base : float</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">        Base temperature for heating degree days (default 18°C for Germany)</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">    cooling_base : float</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">        Base temperature for cooling degree days (default 24°C for Germany)</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">    --------</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">    hdd, cdd : tuple of arrays</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">        Heating and cooling degree days</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    temperature <span class="op">=</span> np.array(temperature)  <span class="co"># Fix: ensure temperature is numpy array</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>    hdd <span class="op">=</span> np.maximum(heating_base <span class="op">-</span> temperature, <span class="dv">0</span>)</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    cdd <span class="op">=</span> np.maximum(temperature <span class="op">-</span> cooling_base, <span class="dv">0</span>)</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> hdd, cdd</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_optimal_base_temperatures(demand, temperature, test_range_heat<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">21</span>), test_range_cool<span class="op">=</span>(<span class="dv">22</span>, <span class="dv">28</span>)):</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">    Find optimal base temperatures using regression analysis</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co">    Parameters:</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="co">    -----------</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="co">    demand : array-like</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="co">        Electricity demand values</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co">    temperature : array-like</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="co">        Temperature values</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co">    test_range_heat : tuple</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co">        Range of heating base temperatures to test</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a><span class="co">    test_range_cool : tuple</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="co">        Range of cooling base temperatures to test</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="co">    --------</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a><span class="co">    best_bases : tuple</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="co">        Optimal (heating_base, cooling_base)</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="co">    best_r2 : float</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co">        R-squared of best fit</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>    best_r2 <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>    best_bases <span class="op">=</span> (<span class="dv">18</span>, <span class="dv">24</span>)  <span class="co"># defaults</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> heat_base <span class="kw">in</span> <span class="bu">range</span>(test_range_heat[<span class="dv">0</span>], test_range_heat[<span class="dv">1</span>] <span class="op">+</span> <span class="dv">1</span>):</span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> cool_base <span class="kw">in</span> <span class="bu">range</span>(test_range_cool[<span class="dv">0</span>], test_range_cool[<span class="dv">1</span>] <span class="op">+</span> <span class="dv">1</span>):</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>            hdd, cdd <span class="op">=</span> calculate_degree_days(temperature, heat_base, cool_base)</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Skip if no variation in degree days</span></span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> np.std(hdd) <span class="op">&lt;</span> <span class="fl">0.1</span> <span class="kw">and</span> np.std(cdd) <span class="op">&lt;</span> <span class="fl">0.1</span>:</span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>                <span class="cf">continue</span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>            X <span class="op">=</span> np.column_stack([hdd, cdd, np.ones(<span class="bu">len</span>(hdd))])  <span class="co"># include intercept</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span>:</span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>                model <span class="op">=</span> LinearRegression(fit_intercept<span class="op">=</span><span class="va">False</span>).fit(X, demand)</span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a>                r2 <span class="op">=</span> model.score(X, demand)</span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> r2 <span class="op">&gt;</span> best_r2:</span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>                    best_r2 <span class="op">=</span> r2</span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>                    best_bases <span class="op">=</span> (heat_base, cool_base)</span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>            <span class="cf">except</span>:</span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>                <span class="cf">continue</span></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> best_bases, best_r2</span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> weather_normalize_demand_regression(demand, temperature, heating_base<span class="op">=</span><span class="va">None</span>, cooling_base<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a><span class="co">    Weather normalize demand using regression-based degree day method</span></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="co">    Parameters:</span></span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a><span class="co">    -----------</span></span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="co">    demand : array-like</span></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a><span class="co">        Electricity demand values</span></span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a><span class="co">    temperature : array-like</span></span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a><span class="co">        Temperature values in Celsius</span></span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a><span class="co">    heating_base : float, optional</span></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a><span class="co">        Heating base temperature (will be optimized if None)</span></span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a><span class="co">    cooling_base : float, optional</span></span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a><span class="co">        Cooling base temperature (will be optimized if None)</span></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a><span class="co">    --------</span></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a><span class="co">    normalized_demand : array</span></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a><span class="co">        Weather-normalized demand</span></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a><span class="co">    model_info : dict</span></span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a><span class="co">        Information about the fitted model</span></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Find optimal base temperatures if not provided</span></span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> heating_base <span class="kw">is</span> <span class="va">None</span> <span class="kw">or</span> cooling_base <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a>        (heating_base, cooling_base), r2 <span class="op">=</span> find_optimal_base_temperatures(demand, temperature)</span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate degree days</span></span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>    hdd, cdd <span class="op">=</span> calculate_degree_days(temperature, heating_base, cooling_base)</span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Fit regression model: demand = baseline + heating_coeff * HDD + cooling_coeff * CDD</span></span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> np.column_stack([hdd, cdd, np.ones(<span class="bu">len</span>(hdd))])</span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> LinearRegression(fit_intercept<span class="op">=</span><span class="va">False</span>).fit(X, demand)</span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate reference conditions (mild weather with minimal heating/cooling)</span></span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>    reference_temp <span class="op">=</span> <span class="fl">20.0</span>  <span class="co"># 20°C as comfortable reference</span></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>    ref_hdd, ref_cdd <span class="op">=</span> calculate_degree_days([reference_temp], heating_base, cooling_base)</span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a>    reference_conditions <span class="op">=</span> np.array([[ref_hdd[<span class="dv">0</span>], ref_cdd[<span class="dv">0</span>], <span class="fl">1.0</span>]])</span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Predict demand under reference weather conditions</span></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>    baseline_demand <span class="op">=</span> model.predict(reference_conditions)[<span class="dv">0</span>]</span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Weather effects in actual data</span></span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a>    weather_effects <span class="op">=</span> model.predict(X) <span class="op">-</span> baseline_demand</span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Normalized demand removes weather effects</span></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a>    normalized_demand <span class="op">=</span> demand <span class="op">-</span> weather_effects</span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a>    model_info <span class="op">=</span> {</span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>        <span class="st">'heating_base'</span>: heating_base,</span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a>        <span class="st">'cooling_base'</span>: cooling_base,</span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a>        <span class="st">'r2_score'</span>: model.score(X, demand),</span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a>        <span class="st">'coefficients'</span>: {</span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>            <span class="st">'heating_slope'</span>: model.coef_[<span class="dv">0</span>],</span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a>            <span class="st">'cooling_slope'</span>: model.coef_[<span class="dv">1</span>], </span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>            <span class="st">'baseline'</span>: model.coef_[<span class="dv">2</span>]</span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>        <span class="st">'reference_temp'</span>: reference_temp</span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> normalized_demand, model_info</span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> estimate_btm_time_series_improved(data, window_days<span class="op">=</span><span class="dv">30</span>):</span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a><span class="co">    Improved BTM solar estimation using proper weather normalization and time series analysis</span></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a><span class="co">    Parameters:</span></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="co">    -----------</span></span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a><span class="co">    data : DataFrame</span></span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a><span class="co">        Input data with columns: DateTime, demand, temperature_2m, surface_solar_radiation_downwards, is_solar_hours</span></span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a><span class="co">    window_days : int</span></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a><span class="co">        Rolling window size in days for trend analysis</span></span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a><span class="co">    --------</span></span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a><span class="co">    DataFrame with added columns for BTM estimation</span></span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> data.copy()</span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a>    window_hours <span class="op">=</span> window_days <span class="op">*</span> <span class="dv">24</span></span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Separate solar and non-solar hour data</span></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a>    solar_data <span class="op">=</span> data[data[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span>].copy()</span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a>    non_solar_data <span class="op">=</span> data[data[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">0</span>].copy()</span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Processing </span><span class="sc">{</span><span class="bu">len</span>(solar_data)<span class="sc">}</span><span class="ss"> solar hours and </span><span class="sc">{</span><span class="bu">len</span>(non_solar_data)<span class="sc">}</span><span class="ss"> non-solar hours"</span>)</span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 1: Weather normalize both datasets using regression method</span></span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Step 1: Weather normalizing solar hour demand..."</span>)</span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a>    solar_normalized, solar_model_info <span class="op">=</span> weather_normalize_demand_regression(</span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a>        solar_data[<span class="st">'demand'</span>].values, </span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a>        solar_data[<span class="st">'temperature_2m'</span>].values</span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a>    solar_data[<span class="st">'normalized_demand'</span>] <span class="op">=</span> solar_normalized</span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Step 1: Weather normalizing non-solar hour demand..."</span>)</span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a>    non_solar_normalized, non_solar_model_info <span class="op">=</span> weather_normalize_demand_regression(</span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a>        non_solar_data[<span class="st">'demand'</span>].values, </span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a>        non_solar_data[<span class="st">'temperature_2m'</span>].values</span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a>    non_solar_data[<span class="st">'normalized_demand'</span>] <span class="op">=</span> non_solar_normalized</span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Solar hours model R²: </span><span class="sc">{</span>solar_model_info[<span class="st">'r2_score'</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Non-solar hours model R²: </span><span class="sc">{</span>non_solar_model_info[<span class="st">'r2_score'</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 2: Calculate rolling trends for normalized demand</span></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Step 2: Calculating demand trends..."</span>)</span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a>    solar_indexed <span class="op">=</span> solar_data.set_index(<span class="st">'DateTime'</span>)</span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a>    non_solar_indexed <span class="op">=</span> non_solar_data.set_index(<span class="st">'DateTime'</span>)</span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use time-based rolling window</span></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a>    solar_trend <span class="op">=</span> solar_indexed[<span class="st">'normalized_demand'</span>].rolling(</span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a>        window<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>window_days<span class="sc">}</span><span class="ss">D'</span>, min_periods<span class="op">=</span><span class="bu">max</span>(<span class="dv">1</span>, window_hours<span class="op">//</span><span class="dv">4</span>)</span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a>    ).mean()</span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a>    non_solar_trend <span class="op">=</span> non_solar_indexed[<span class="st">'normalized_demand'</span>].rolling(</span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a>        window<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>window_days<span class="sc">}</span><span class="ss">D'</span>, min_periods<span class="op">=</span><span class="bu">max</span>(<span class="dv">1</span>, window_hours<span class="op">//</span><span class="dv">4</span>)</span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a>    ).mean()</span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 3: Merge trends back to main dataset</span></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> results.set_index(<span class="st">'DateTime'</span>)</span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'solar_trend'</span>] <span class="op">=</span> solar_trend</span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'non_solar_trend'</span>] <span class="op">=</span> non_solar_trend</span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> results.reset_index()</span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Forward fill and backward fill missing values</span></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'solar_trend'</span>] <span class="op">=</span> results[<span class="st">'solar_trend'</span>].fillna(method<span class="op">=</span><span class="st">'ffill'</span>).fillna(method<span class="op">=</span><span class="st">'bfill'</span>)</span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'non_solar_trend'</span>] <span class="op">=</span> results[<span class="st">'non_solar_trend'</span>].fillna(method<span class="op">=</span><span class="st">'ffill'</span>).fillna(method<span class="op">=</span><span class="st">'bfill'</span>)</span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 4: Establish baseline relationship using early data (first year)</span></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Step 3: Establishing baseline solar/non-solar relationship..."</span>)</span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a>    early_data_mask <span class="op">=</span> results[<span class="st">'DateTime'</span>] <span class="op">&lt;=</span> (results[<span class="st">'DateTime'</span>].<span class="bu">min</span>() <span class="op">+</span> pd.Timedelta(days<span class="op">=</span><span class="dv">365</span>))</span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a>    early_data <span class="op">=</span> results[early_data_mask]</span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate baseline ratio with robust statistics (median to avoid outliers)</span></span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a>    valid_early <span class="op">=</span> early_data.dropna(subset<span class="op">=</span>[<span class="st">'solar_trend'</span>, <span class="st">'non_solar_trend'</span>])</span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(valid_early) <span class="op">&gt;</span> <span class="dv">100</span>:</span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a>        baseline_ratio <span class="op">=</span> (valid_early[<span class="st">'solar_trend'</span>] <span class="op">/</span> valid_early[<span class="st">'non_solar_trend'</span>]).median()</span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a>        baseline_ratio <span class="op">=</span> <span class="fl">1.0</span>  <span class="co"># fallback</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Baseline solar/non-solar ratio: </span><span class="sc">{</span>baseline_ratio<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 5: Calculate expected solar demand based on non-solar trends</span></span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'expected_solar_demand'</span>] <span class="op">=</span> results[<span class="st">'non_solar_trend'</span>] <span class="op">*</span> baseline_ratio</span>
+<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 6: Calculate BTM effect as gap between expected and observed trends</span></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a>    demand_gap <span class="op">=</span> results[<span class="st">'expected_solar_demand'</span>] <span class="op">-</span> results[<span class="st">'solar_trend'</span>]</span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a>    btm_effect_base <span class="op">=</span> np.maximum(demand_gap, <span class="dv">0</span>)</span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 7: Scale by solar radiation availability (improved scaling)</span></span>
+<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use actual solar radiation relative to maximum observed</span></span>
+<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a>    max_solar_radiation <span class="op">=</span> results[<span class="st">'surface_solar_radiation_downwards'</span>].quantile(<span class="fl">0.95</span>)</span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a>    solar_availability <span class="op">=</span> np.clip(</span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a>        results[<span class="st">'surface_solar_radiation_downwards'</span>] <span class="op">/</span> max_solar_radiation, </span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a>        <span class="dv">0</span>, <span class="dv">1</span></span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Apply BTM effect only during solar hours and scale by solar availability</span></span>
+<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'btm_method3'</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a>    solar_mask <span class="op">=</span> results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a>    results.loc[solar_mask, <span class="st">'btm_method3'</span>] <span class="op">=</span> (</span>
+<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a>        btm_effect_base[solar_mask] <span class="op">*</span> solar_availability[solar_mask]</span>
+<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Step 8: Apply smoothing to reduce noise</span></span>
+<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'btm_method3'</span>] <span class="op">=</span> results[<span class="st">'btm_method3'</span>].rolling(</span>
+<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a>        window<span class="op">=</span><span class="dv">24</span>, center<span class="op">=</span><span class="va">True</span>, min_periods<span class="op">=</span><span class="dv">1</span></span>
+<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a>    ).mean()</span>
+<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Ensure non-negative values</span></span>
+<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'btm_method3'</span>] <span class="op">=</span> np.maximum(results[<span class="st">'btm_method3'</span>], <span class="dv">0</span>)</span>
+<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add model information as attributes</span></span>
+<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a>    results.attrs[<span class="st">'solar_model_info'</span>] <span class="op">=</span> solar_model_info</span>
+<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a>    results.attrs[<span class="st">'non_solar_model_info'</span>] <span class="op">=</span> non_solar_model_info</span>
+<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a>    results.attrs[<span class="st">'baseline_ratio'</span>] <span class="op">=</span> baseline_ratio</span>
+<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a>    results.attrs[<span class="st">'window_days'</span>] <span class="op">=</span> window_days</span>
+<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Step 4: BTM estimation completed successfully!"</span>)</span>
+<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span>
+<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick version for comparison</span></span>
+<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> estimate_btm_simple(data):</span>
+<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a><span class="co">    Simplified but improved BTM estimation - quick fix version</span></span>
+<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> data.copy()</span>
+<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple degree-day based weather normalization</span></span>
+<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a>    temp <span class="op">=</span> results[<span class="st">'temperature_2m'</span>].values</span>
+<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a>    hdd <span class="op">=</span> np.maximum(<span class="dv">18</span> <span class="op">-</span> temp, <span class="dv">0</span>)  <span class="co"># Heating degree days</span></span>
+<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a>    cdd <span class="op">=</span> np.maximum(temp <span class="op">-</span> <span class="dv">24</span>, <span class="dv">0</span>)  <span class="co"># Cooling degree days</span></span>
+<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple weather adjustment (much better than /20 approach)</span></span>
+<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a>    weather_factor <span class="op">=</span> <span class="dv">1</span> <span class="op">+</span> <span class="fl">0.01</span> <span class="op">*</span> hdd <span class="op">+</span> <span class="fl">0.015</span> <span class="op">*</span> cdd  <span class="co"># Based on literature coefficients</span></span>
+<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Apply to separate datasets</span></span>
+<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a>    solar_data <span class="op">=</span> results[results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span>].copy()</span>
+<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a>    non_solar_data <span class="op">=</span> results[results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">0</span>].copy()</span>
+<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Weather normalize using the simple but proper method</span></span>
+<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a>    solar_normalized <span class="op">=</span> solar_data[<span class="st">'demand'</span>] <span class="op">/</span> weather_factor[results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span>]</span>
+<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a>    non_solar_normalized <span class="op">=</span> non_solar_data[<span class="st">'demand'</span>] <span class="op">/</span> weather_factor[results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">0</span>]</span>
+<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Rolling trends (30-day window)</span></span>
+<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a>    window <span class="op">=</span> <span class="dv">30</span> <span class="op">*</span> <span class="dv">24</span></span>
+<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a>    solar_trend <span class="op">=</span> pd.Series(solar_normalized, index<span class="op">=</span>solar_data.index).rolling(</span>
+<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a>        window<span class="op">=</span>window, min_periods<span class="op">=</span>window<span class="op">//</span><span class="dv">4</span></span>
+<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a>    ).mean()</span>
+<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-292"><a href="#cb6-292" aria-hidden="true" tabindex="-1"></a>    non_solar_trend <span class="op">=</span> pd.Series(non_solar_normalized, index<span class="op">=</span>non_solar_data.index).rolling(</span>
+<span id="cb6-293"><a href="#cb6-293" aria-hidden="true" tabindex="-1"></a>        window<span class="op">=</span>window, min_periods<span class="op">=</span>window<span class="op">//</span><span class="dv">4</span></span>
+<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a>    ).mean()</span>
+<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Merge back to main dataset</span></span>
+<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'solar_trend'</span>] <span class="op">=</span> np.nan</span>
+<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'non_solar_trend'</span>] <span class="op">=</span> np.nan</span>
+<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a>    results.loc[solar_data.index, <span class="st">'solar_trend'</span>] <span class="op">=</span> solar_trend</span>
+<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a>    results.loc[non_solar_data.index, <span class="st">'non_solar_trend'</span>] <span class="op">=</span> non_solar_trend</span>
+<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-302"><a href="#cb6-302" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Forward fill</span></span>
+<span id="cb6-303"><a href="#cb6-303" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'solar_trend'</span>] <span class="op">=</span> results[<span class="st">'solar_trend'</span>].fillna(method<span class="op">=</span><span class="st">'ffill'</span>).fillna(method<span class="op">=</span><span class="st">'bfill'</span>)</span>
+<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'non_solar_trend'</span>] <span class="op">=</span> results[<span class="st">'non_solar_trend'</span>].fillna(method<span class="op">=</span><span class="st">'ffill'</span>).fillna(method<span class="op">=</span><span class="st">'bfill'</span>)</span>
+<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Baseline ratio from first 6 months</span></span>
+<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a>    early_mask <span class="op">=</span> results[<span class="st">'DateTime'</span>] <span class="op">&lt;=</span> (results[<span class="st">'DateTime'</span>].<span class="bu">min</span>() <span class="op">+</span> pd.Timedelta(days<span class="op">=</span><span class="dv">180</span>))</span>
+<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a>    baseline_ratio <span class="op">=</span> (results.loc[early_mask, <span class="st">'solar_trend'</span>] <span class="op">/</span> </span>
+<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a>                     results.loc[early_mask, <span class="st">'non_solar_trend'</span>]).median()</span>
+<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Expected vs actual</span></span>
+<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'expected_solar_demand'</span>] <span class="op">=</span> results[<span class="st">'non_solar_trend'</span>] <span class="op">*</span> baseline_ratio</span>
+<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a>    demand_gap <span class="op">=</span> results[<span class="st">'expected_solar_demand'</span>] <span class="op">-</span> results[<span class="st">'solar_trend'</span>]</span>
+<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a>    demand_gap <span class="op">=</span> np.maximum(demand_gap, <span class="dv">0</span>)</span>
+<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Scale by solar radiation</span></span>
+<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a>    max_solar <span class="op">=</span> results[<span class="st">'surface_solar_radiation_downwards'</span>].quantile(<span class="fl">0.95</span>)</span>
+<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a>    solar_scale <span class="op">=</span> np.clip(results[<span class="st">'surface_solar_radiation_downwards'</span>] <span class="op">/</span> max_solar, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Apply only during solar hours</span></span>
+<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a>    results[<span class="st">'btm_method3'</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a>    solar_mask <span class="op">=</span> results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb6-323"><a href="#cb6-323" aria-hidden="true" tabindex="-1"></a>    results.loc[solar_mask, <span class="st">'btm_method3'</span>] <span class="op">=</span> demand_gap[solar_mask] <span class="op">*</span> solar_scale[solar_mask]</span>
+<span id="cb6-324"><a href="#cb6-324" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-325"><a href="#cb6-325" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span>
+<span id="cb6-326"><a href="#cb6-326" aria-hidden="true" tabindex="-1"></a><span class="co">#results_m3 = estimate_btm_time_series(data_q2_expanded)</span></span>
+<span id="cb6-327"><a href="#cb6-327" aria-hidden="true" tabindex="-1"></a><span class="co">#results_m3 = estimate_btm_time_series(data_q2_expanded)</span></span>
+<span id="cb6-328"><a href="#cb6-328" aria-hidden="true" tabindex="-1"></a><span class="co">#results_m3 = estimate_btm_time_series_improved(data_q2_expanded)</span></span>
+<span id="cb6-329"><a href="#cb6-329" aria-hidden="true" tabindex="-1"></a>results_m3 <span class="op">=</span> estimate_btm_simple(data_q2_expanded)</span>
+<span id="cb6-330"><a href="#cb6-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-331"><a href="#cb6-331" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"BTM Solar Estimation Summary (Method 3):"</span>)</span>
+<span id="cb6-332"><a href="#cb6-332" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(results_m3.groupby(<span class="st">'year'</span>)[<span class="st">'btm_method3'</span>].<span class="bu">sum</span>().<span class="bu">round</span>(<span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="method3-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">BTM Solar Estimation Summary <span style="font-weight: bold">(</span>Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">3</span><span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="method3-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">year
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">152999.30</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">292894.15</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">340777.54</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">198943.04</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">520177.12</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">287375.75</span>
+Name: btm_method3, dtype: float64
+</pre>
+</div>
+</div>
+</section>
+<section id="method-4-weather-matched-control-groups" class="level3">
+<h3 class="anchored" data-anchor-id="method-4-weather-matched-control-groups">Method 4: Weather-Matched Control Groups</h3>
+</section>
+<section id="method-4-analog-weather-based-btm-estimation" class="level3">
+<h3 class="anchored" data-anchor-id="method-4-analog-weather-based-btm-estimation">Method 4: Analog Weather-Based BTM Estimation</h3>
+<p>This method applies analog weather principles to electricity demand analysis. It identifies ‘analog days’ with similar meteorological conditions across different years and compares their demand patterns to isolate BTM solar effects over time.</p>
+<p>Based on analog weather methodology from meteorology/climatology: - Uses multi-dimensional weather similarity metrics - Employs ensemble of analogs rather than single best match - Includes temporal and seasonal constraints - Validates analog quality using established meteorological criteria</p>
+<div id="method4" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> StandardScaler</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics.pairwise <span class="im">import</span> euclidean_distances</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AnalogWeatherBTMEstimator:</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">    Estimates BTM solar using analog weather methodology from meteorology</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">    Based on analog weather principles:</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">    - Multi-dimensional weather similarity in standardized space</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">    - Ensemble of best analogs rather than single match</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">    - Quality control metrics from meteorological literature</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">    - Seasonal and temporal constraints</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, reference_year<span class="op">=</span><span class="dv">2020</span>, weather_tolerance<span class="op">=</span><span class="fl">1.5</span>, min_matches<span class="op">=</span><span class="dv">10</span>):</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.reference_year <span class="op">=</span> reference_year</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.weather_tolerance <span class="op">=</span> weather_tolerance</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.min_matches <span class="op">=</span> min_matches</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Weather variables for analog selection</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.weather_features <span class="op">=</span> [</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>            <span class="st">'temperature_2m'</span>,</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>            <span class="st">'relative_humidity_2m'</span>,</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>            <span class="st">'surface_solar_radiation_downwards'</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        ]</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scaler <span class="op">=</span> StandardScaler()</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> prepare_daily_data(<span class="va">self</span>, data):</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Aggregate hourly data to daily averages with metadata"""</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        daily_data <span class="op">=</span> data.groupby(data[<span class="st">'DateTime'</span>].dt.date).agg({</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>            <span class="st">'temperature_2m'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>            <span class="st">'relative_humidity_2m'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>            <span class="st">'surface_solar_radiation_downwards'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>            <span class="st">'demand'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>            <span class="st">'dayofyear'</span>: <span class="st">'first'</span>,</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>            <span class="st">'year'</span>: <span class="st">'first'</span>,</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>            <span class="st">'is_workday'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>            <span class="st">'season'</span>: <span class="kw">lambda</span> x: x.mode()[<span class="dv">0</span>] <span class="cf">if</span> <span class="bu">len</span>(x.mode()) <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> x.iloc[<span class="dv">0</span>]</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>        }).reset_index()</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Rename the date column back to DateTime for consistency</span></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>        daily_data.rename(columns<span class="op">=</span>{<span class="st">'DateTime'</span>: <span class="st">'date'</span>}, inplace<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Add day type classification</span></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>        daily_data[<span class="st">'is_mainly_workday'</span>] <span class="op">=</span> (daily_data[<span class="st">'is_workday'</span>] <span class="op">&gt;</span> <span class="fl">0.5</span>).astype(<span class="bu">int</span>)</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> daily_data</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> find_weather_matches(<span class="va">self</span>, daily_data):</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Find days with similar weather across different years"""</span></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Find matches between reference year and other years</span></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>        reference_days <span class="op">=</span> daily_data[daily_data[<span class="st">'year'</span>] <span class="op">==</span> <span class="va">self</span>.reference_year]</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>        matches <span class="op">=</span> []</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _, ref_day <span class="kw">in</span> reference_days.iterrows():</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> year <span class="kw">in</span> [<span class="dv">2021</span>, <span class="dv">2022</span>, <span class="dv">2023</span>, <span class="dv">2024</span>]:</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>                year_data <span class="op">=</span> daily_data[</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>                    (daily_data[<span class="st">'year'</span>] <span class="op">==</span> year) <span class="op">&amp;</span> </span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>                    (daily_data[<span class="st">'is_mainly_workday'</span>] <span class="op">==</span> ref_day[<span class="st">'is_mainly_workday'</span>]) <span class="op">&amp;</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>                    (<span class="bu">abs</span>(daily_data[<span class="st">'dayofyear'</span>] <span class="op">-</span> ref_day[<span class="st">'dayofyear'</span>]) <span class="op">&lt;=</span> <span class="dv">7</span>)</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="bu">len</span>(year_data) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Calculate weather similarity (normalized distances)</span></span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>                temp_diff <span class="op">=</span> (year_data[<span class="st">'temperature_2m'</span>] <span class="op">-</span> ref_day[<span class="st">'temperature_2m'</span>]) <span class="op">/</span> <span class="dv">10</span></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>                humidity_diff <span class="op">=</span> (year_data[<span class="st">'relative_humidity_2m'</span>] <span class="op">-</span> ref_day[<span class="st">'relative_humidity_2m'</span>]) <span class="op">/</span> <span class="dv">20</span></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>                solar_diff <span class="op">=</span> (year_data[<span class="st">'surface_solar_radiation_downwards'</span>] <span class="op">-</span> ref_day[<span class="st">'surface_solar_radiation_downwards'</span>]) <span class="op">/</span> <span class="dv">200</span></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>                weather_distance <span class="op">=</span> np.sqrt(temp_diff<span class="op">**</span><span class="dv">2</span> <span class="op">+</span> humidity_diff<span class="op">**</span><span class="dv">2</span> <span class="op">+</span> solar_diff<span class="op">**</span><span class="dv">2</span>)</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>                best_match_idx <span class="op">=</span> weather_distance.idxmin()</span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> weather_distance.loc[best_match_idx] <span class="op">&lt;</span> <span class="va">self</span>.weather_tolerance:</span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a>                    matches.append({</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'ref_date'</span>: ref_day[<span class="st">'date'</span>],</span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'match_date'</span>: year_data.loc[best_match_idx, <span class="st">'date'</span>],</span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'ref_demand'</span>: ref_day[<span class="st">'demand'</span>],</span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'match_demand'</span>: year_data.loc[best_match_idx, <span class="st">'demand'</span>],</span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'demand_difference'</span>: ref_day[<span class="st">'demand'</span>] <span class="op">-</span> year_data.loc[best_match_idx, <span class="st">'demand'</span>],</span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'match_year'</span>: year,</span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'weather_distance'</span>: weather_distance.loc[best_match_idx],</span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>                        <span class="st">'season'</span>: ref_day[<span class="st">'season'</span>]</span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a>                    })</span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> pd.DataFrame(matches)</span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> calculate_btm_estimates(<span class="va">self</span>, matches_df):</span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Calculate BTM estimates from weather-matched pairs"""</span></span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a>        btm_estimates <span class="op">=</span> {}</span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a>        match_quality <span class="op">=</span> {}</span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year <span class="kw">in</span> matches_df[<span class="st">'match_year'</span>].unique():</span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a>            year_matches <span class="op">=</span> matches_df[matches_df[<span class="st">'match_year'</span>] <span class="op">==</span> year]</span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">len</span>(year_matches) <span class="op">&gt;=</span> <span class="va">self</span>.min_matches:</span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Use median to reduce outlier impact</span></span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true" tabindex="-1"></a>                btm_estimate <span class="op">=</span> year_matches[<span class="st">'demand_difference'</span>].median()</span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true" tabindex="-1"></a>                <span class="co"># BTM can only reduce demand (positive difference)</span></span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true" tabindex="-1"></a>                btm_estimate <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, btm_estimate)</span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a>                match_quality[year] <span class="op">=</span> {</span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'n_matches'</span>: <span class="bu">len</span>(year_matches),</span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'avg_weather_distance'</span>: year_matches[<span class="st">'weather_distance'</span>].mean(),</span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'demand_diff_std'</span>: year_matches[<span class="st">'demand_difference'</span>].std(),</span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'seasonal_coverage'</span>: year_matches[<span class="st">'season'</span>].nunique()</span>
+<span id="cb7-106"><a href="#cb7-106" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb7-107"><a href="#cb7-107" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb7-108"><a href="#cb7-108" aria-hidden="true" tabindex="-1"></a>                btm_estimate <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb7-109"><a href="#cb7-109" aria-hidden="true" tabindex="-1"></a>                match_quality[year] <span class="op">=</span> {</span>
+<span id="cb7-110"><a href="#cb7-110" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'n_matches'</span>: <span class="bu">len</span>(year_matches),</span>
+<span id="cb7-111"><a href="#cb7-111" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'avg_weather_distance'</span>: np.nan,</span>
+<span id="cb7-112"><a href="#cb7-112" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'demand_diff_std'</span>: np.nan,</span>
+<span id="cb7-113"><a href="#cb7-113" aria-hidden="true" tabindex="-1"></a>                    <span class="st">'seasonal_coverage'</span>: <span class="dv">0</span></span>
+<span id="cb7-114"><a href="#cb7-114" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb7-115"><a href="#cb7-115" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb7-116"><a href="#cb7-116" aria-hidden="true" tabindex="-1"></a>            btm_estimates[year] <span class="op">=</span> btm_estimate</span>
+<span id="cb7-117"><a href="#cb7-117" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-118"><a href="#cb7-118" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> btm_estimates, match_quality</span>
+<span id="cb7-119"><a href="#cb7-119" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-120"><a href="#cb7-120" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> estimate_btm_solar(<span class="va">self</span>, data):</span>
+<span id="cb7-121"><a href="#cb7-121" aria-hidden="true" tabindex="-1"></a>        <span class="co">"""Main method to estimate BTM solar using weather matching"""</span></span>
+<span id="cb7-122"><a href="#cb7-122" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"=== Method 4: Weather-Matched Control Groups ==="</span>)</span>
+<span id="cb7-123"><a href="#cb7-123" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Using </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>reference_year<span class="sc">}</span><span class="ss"> as reference year"</span>)</span>
+<span id="cb7-124"><a href="#cb7-124" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-125"><a href="#cb7-125" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Prepare daily aggregated data</span></span>
+<span id="cb7-126"><a href="#cb7-126" aria-hidden="true" tabindex="-1"></a>        daily_data <span class="op">=</span> <span class="va">self</span>.prepare_daily_data(data)</span>
+<span id="cb7-127"><a href="#cb7-127" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Prepared </span><span class="sc">{</span><span class="bu">len</span>(daily_data)<span class="sc">}</span><span class="ss"> daily observations"</span>)</span>
+<span id="cb7-128"><a href="#cb7-128" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-129"><a href="#cb7-129" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Find weather matches</span></span>
+<span id="cb7-130"><a href="#cb7-130" aria-hidden="true" tabindex="-1"></a>        matches_df <span class="op">=</span> <span class="va">self</span>.find_weather_matches(daily_data)</span>
+<span id="cb7-131"><a href="#cb7-131" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Found </span><span class="sc">{</span><span class="bu">len</span>(matches_df)<span class="sc">}</span><span class="ss"> weather-matched day pairs"</span>)</span>
+<span id="cb7-132"><a href="#cb7-132" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-133"><a href="#cb7-133" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Calculate BTM estimates</span></span>
+<span id="cb7-134"><a href="#cb7-134" aria-hidden="true" tabindex="-1"></a>        btm_estimates, match_quality <span class="op">=</span> <span class="va">self</span>.calculate_btm_estimates(matches_df)</span>
+<span id="cb7-135"><a href="#cb7-135" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-136"><a href="#cb7-136" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Apply estimates to hourly data</span></span>
+<span id="cb7-137"><a href="#cb7-137" aria-hidden="true" tabindex="-1"></a>        results <span class="op">=</span> data.copy()</span>
+<span id="cb7-138"><a href="#cb7-138" aria-hidden="true" tabindex="-1"></a>        results[<span class="st">'btm_method4'</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb7-139"><a href="#cb7-139" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-140"><a href="#cb7-140" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year, daily_btm <span class="kw">in</span> btm_estimates.items():</span>
+<span id="cb7-141"><a href="#cb7-141" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> daily_btm <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb7-142"><a href="#cb7-142" aria-hidden="true" tabindex="-1"></a>                year_mask <span class="op">=</span> (results[<span class="st">'year'</span>] <span class="op">==</span> year) <span class="op">&amp;</span> (results[<span class="st">'is_solar_hours'</span>] <span class="op">==</span> <span class="dv">1</span>)</span>
+<span id="cb7-143"><a href="#cb7-143" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-144"><a href="#cb7-144" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Scale daily estimate by solar radiation and hour</span></span>
+<span id="cb7-145"><a href="#cb7-145" aria-hidden="true" tabindex="-1"></a>                max_solar <span class="op">=</span> results[<span class="st">'surface_solar_radiation_downwards'</span>].quantile(<span class="fl">0.95</span>)</span>
+<span id="cb7-146"><a href="#cb7-146" aria-hidden="true" tabindex="-1"></a>                solar_factor <span class="op">=</span> np.clip(</span>
+<span id="cb7-147"><a href="#cb7-147" aria-hidden="true" tabindex="-1"></a>                    results[<span class="st">'surface_solar_radiation_downwards'</span>] <span class="op">/</span> max_solar, <span class="dv">0</span>, <span class="dv">1</span></span>
+<span id="cb7-148"><a href="#cb7-148" aria-hidden="true" tabindex="-1"></a>                )</span>
+<span id="cb7-149"><a href="#cb7-149" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-150"><a href="#cb7-150" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Apply scaled BTM estimate</span></span>
+<span id="cb7-151"><a href="#cb7-151" aria-hidden="true" tabindex="-1"></a>                results.loc[year_mask, <span class="st">'btm_method4'</span>] <span class="op">=</span> daily_btm <span class="op">*</span> solar_factor[year_mask]</span>
+<span id="cb7-152"><a href="#cb7-152" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-153"><a href="#cb7-153" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Print diagnostic information</span></span>
+<span id="cb7-154"><a href="#cb7-154" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Weather Matching Quality:"</span>)</span>
+<span id="cb7-155"><a href="#cb7-155" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year, quality <span class="kw">in</span> match_quality.items():</span>
+<span id="cb7-156"><a href="#cb7-156" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>year<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>quality[<span class="st">'n_matches'</span>]<span class="sc">}</span><span class="ss"> matches, "</span></span>
+<span id="cb7-157"><a href="#cb7-157" aria-hidden="true" tabindex="-1"></a>                  <span class="ss">f"avg weather distance: </span><span class="sc">{</span>quality[<span class="st">'avg_weather_distance'</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb7-158"><a href="#cb7-158" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-159"><a href="#cb7-159" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Daily BTM Estimates (MWh/day):"</span>)</span>
+<span id="cb7-160"><a href="#cb7-160" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year, estimate <span class="kw">in</span> btm_estimates.items():</span>
+<span id="cb7-161"><a href="#cb7-161" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>year<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>estimate<span class="sc">:.1f}</span><span class="ss">"</span>)</span>
+<span id="cb7-162"><a href="#cb7-162" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-163"><a href="#cb7-163" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> results, matches_df, match_quality</span>
+<span id="cb7-164"><a href="#cb7-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-165"><a href="#cb7-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-166"><a href="#cb7-166" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply Method 4</span></span>
+<span id="cb7-167"><a href="#cb7-167" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Applying Method 4: Weather-Matched Control Groups..."</span>)</span>
+<span id="cb7-168"><a href="#cb7-168" aria-hidden="true" tabindex="-1"></a>estimator_m4 <span class="op">=</span> AnalogWeatherBTMEstimator(reference_year<span class="op">=</span><span class="dv">2020</span>)</span>
+<span id="cb7-169"><a href="#cb7-169" aria-hidden="true" tabindex="-1"></a>results_m4, matches_df, match_quality <span class="op">=</span> estimator_m4.estimate_btm_solar(data_q2_expanded)</span>
+<span id="cb7-170"><a href="#cb7-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-171"><a href="#cb7-171" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">BTM Solar Estimation Summary (Method 4):"</span>)</span>
+<span id="cb7-172"><a href="#cb7-172" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(results_m4.groupby(<span class="st">'year'</span>)[<span class="st">'btm_method4'</span>].<span class="bu">sum</span>().<span class="bu">round</span>(<span class="dv">2</span>))</span>
+<span id="cb7-173"><a href="#cb7-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-174"><a href="#cb7-174" aria-hidden="true" tabindex="-1"></a><span class="co"># Validation: Compare Method 4 with other methods</span></span>
+<span id="cb7-175"><a href="#cb7-175" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">=== Method 4 Validation ==="</span>)</span>
+<span id="cb7-176"><a href="#cb7-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-177"><a href="#cb7-177" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate correlation with solar radiation (should be positive)</span></span>
+<span id="cb7-178"><a href="#cb7-178" aria-hidden="true" tabindex="-1"></a>monthly_stats_m4 <span class="op">=</span> results_m4.groupby(results_m4[<span class="st">'DateTime'</span>].dt.month).agg({</span>
+<span id="cb7-179"><a href="#cb7-179" aria-hidden="true" tabindex="-1"></a>    <span class="st">'btm_method4'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb7-180"><a href="#cb7-180" aria-hidden="true" tabindex="-1"></a>    <span class="st">'surface_solar_radiation_downwards'</span>: <span class="st">'mean'</span></span>
+<span id="cb7-181"><a href="#cb7-181" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb7-182"><a href="#cb7-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-183"><a href="#cb7-183" aria-hidden="true" tabindex="-1"></a>correlation_m4 <span class="op">=</span> monthly_stats_m4[<span class="st">'btm_method4'</span>].corr(</span>
+<span id="cb7-184"><a href="#cb7-184" aria-hidden="true" tabindex="-1"></a>    monthly_stats_m4[<span class="st">'surface_solar_radiation_downwards'</span>]</span>
+<span id="cb7-185"><a href="#cb7-185" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-186"><a href="#cb7-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-187"><a href="#cb7-187" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Method 4 - Monthly BTM-Solar correlation: </span><span class="sc">{</span>correlation_m4<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb7-188"><a href="#cb7-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-189"><a href="#cb7-189" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> correlation_m4 <span class="op">&gt;</span> <span class="fl">0.5</span>:</span>
+<span id="cb7-190"><a href="#cb7-190" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"✓ Good seasonal pattern"</span>)</span>
+<span id="cb7-191"><a href="#cb7-191" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> correlation_m4 <span class="op">&gt;</span> <span class="fl">0.3</span>:</span>
+<span id="cb7-192"><a href="#cb7-192" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"⚠ Moderate seasonal pattern"</span>) </span>
+<span id="cb7-193"><a href="#cb7-193" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb7-194"><a href="#cb7-194" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"✗ Weak seasonal pattern"</span>)</span>
+<span id="cb7-195"><a href="#cb7-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-196"><a href="#cb7-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-197"><a href="#cb7-197" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate growth rates for Method 4</span></span>
+<span id="cb7-198"><a href="#cb7-198" aria-hidden="true" tabindex="-1"></a><span class="co">#method4_growth = annual_comparison['Method4'].pct_change() * 100</span></span>
+<span id="cb7-199"><a href="#cb7-199" aria-hidden="true" tabindex="-1"></a><span class="co">#print(f"\nMethod 4 Year-over-Year Growth:")</span></span>
+<span id="cb7-200"><a href="#cb7-200" aria-hidden="true" tabindex="-1"></a><span class="co">#for year, growth in method4_growth.items():</span></span>
+<span id="cb7-201"><a href="#cb7-201" aria-hidden="true" tabindex="-1"></a><span class="co">#    if not pd.isna(growth):</span></span>
+<span id="cb7-202"><a href="#cb7-202" aria-hidden="true" tabindex="-1"></a><span class="co">#        print(f"  {year}: {growth:.1f}%")</span></span>
+<span id="cb7-203"><a href="#cb7-203" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb7-204"><a href="#cb7-204" aria-hidden="true" tabindex="-1"></a><span class="co">## Calculate 2020-2024 total growth for Method 4</span></span>
+<span id="cb7-205"><a href="#cb7-205" aria-hidden="true" tabindex="-1"></a><span class="co">#if 2024 in annual_comparison.index and 2020 in annual_comparison.index:</span></span>
+<span id="cb7-206"><a href="#cb7-206" aria-hidden="true" tabindex="-1"></a><span class="co">#    total_growth_m4 = ((annual_comparison.loc[2024, 'Method4'] / </span></span>
+<span id="cb7-207"><a href="#cb7-207" aria-hidden="true" tabindex="-1"></a><span class="co">#                       annual_comparison.loc[2020, 'Method4']) - 1) * 100</span></span>
+<span id="cb7-208"><a href="#cb7-208" aria-hidden="true" tabindex="-1"></a><span class="co">#    print(f"\nMethod 4: Total 2020-2024 Growth: {total_growth_m4:.1f}%")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="method4-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Applying Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4</span>: Weather-Matched Control Groups<span style="color: #808000; text-decoration-color: #808000">...</span>
+</pre>
+</div>
+<div id="method4-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4</span>: Weather-Matched Control Groups ===
+</pre>
+</div>
+<div id="method4-3" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Using <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span> as reference year
+</pre>
+</div>
+<div id="method4-4" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Prepared <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1978</span> daily observations
+</pre>
+</div>
+<div id="method4-5" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Found <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1462</span> weather-matched day pairs
+</pre>
+</div>
+<div id="method4-6" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Weather Matching Quality:
+</pre>
+</div>
+<div id="method4-7" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">366</span> matches, avg weather distance: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.342</span>
+</pre>
+</div>
+<div id="method4-8" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">366</span> matches, avg weather distance: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.307</span>
+</pre>
+</div>
+<div id="method4-9" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">365</span> matches, avg weather distance: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.349</span>
+</pre>
+</div>
+<div id="method4-10" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">365</span> matches, avg weather distance: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.357</span>
+</pre>
+</div>
+<div id="method4-11" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Daily BTM Estimates <span style="font-weight: bold">(</span>MWh/day<span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="method4-12" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.0</span>
+</pre>
+</div>
+<div id="method4-13" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.0</span>
+</pre>
+</div>
+<div id="method4-14" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2743.7</span>
+</pre>
+</div>
+<div id="method4-15" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2412.5</span>
+</pre>
+</div>
+<div id="method4-16" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">BTM Solar Estimation Summary <span style="font-weight: bold">(</span>Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4</span><span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="method4-17" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">year
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>          <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.00</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>          <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.00</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>          <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.00</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4851828.61</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4255128.43</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>          <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.00</span>
+Name: btm_method4, dtype: float64
+</pre>
+</div>
+<div id="method4-18" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4</span> Validation ===
+</pre>
+</div>
+<div id="method4-19" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Method <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">4</span> - Monthly BTM-Solar correlation: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.972</span>
+</pre>
+</div>
+<div id="method4-20" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">✓ Good seasonal pattern
+</pre>
+</div>
+</div>
+</section>
+</section>
+<section id="comprehensive-btm-solar-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="comprehensive-btm-solar-analysis">Comprehensive BTM Solar Analysis</h2>
+<section id="combine-methods-and-calculate-true-demand" class="level3">
+<h3 class="anchored" data-anchor-id="combine-methods-and-calculate-true-demand">Combine Methods and Calculate True Demand</h3>
+<div id="combine-methods" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine results from all three methods</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>final_results <span class="op">=</span> data_q2_expanded.copy()</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>final_results[<span class="st">'btm_method1'</span>] <span class="op">=</span> results_m1[<span class="st">'btm_method1'</span>]</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>final_results[<span class="st">'btm_method2'</span>] <span class="op">=</span> results_m2[<span class="st">'btm_method2'</span>]</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>final_results[<span class="st">'btm_method3'</span>] <span class="op">=</span> results_m3[<span class="st">'btm_method3'</span>]</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate ensemble estimate (equal weighting for the two primary methods)</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">#final_results['btm_ensemble'] = (</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co">#    0.45 * final_results['btm_method1'] + </span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">#    0.45 * final_results['btm_method2'] + </span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">#    0.10 * final_results['btm_method3']</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co">#)</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Original: 45% Method 1 + 45% Method 2 + 10% Method 3</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Tried: 50% Method 1 + 40% Method 2 + 10% Method 3</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick validation: BTM should correlate with solar radiation</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="co">##another test</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>final_results[<span class="st">'btm_ensemble'</span>] <span class="op">=</span> (</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.90</span> <span class="op">*</span> final_results[<span class="st">'btm_method1'</span>] <span class="op">+</span>    <span class="co"># Random Forest (most robust)</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.05</span> <span class="op">*</span> final_results[<span class="st">'btm_method2'</span>] <span class="op">+</span>    <span class="co"># Ridge (simpler)</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.05</span> <span class="op">*</span> final_results[<span class="st">'btm_method3'</span>]      <span class="co"># Time series (validation only)</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick sanity check for each BTM method individually</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"=== QUICK BTM SANITY CHECKS ==="</span>)</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">55</span>)</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>methods <span class="op">=</span> [<span class="st">'btm_method1'</span>, <span class="st">'btm_method2'</span>, <span class="st">'btm_method3'</span>, <span class="st">'btm_ensemble'</span>]</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> method <span class="kw">in</span> methods:</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> method <span class="kw">in</span> final_results.columns:</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Calculate monthly averages for BTM and solar radiation</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>        monthly_stats <span class="op">=</span> final_results.groupby(final_results[<span class="st">'DateTime'</span>].dt.month).agg({</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>            method: <span class="st">'mean'</span>,</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>            <span class="st">'surface_solar_radiation_downwards'</span>: <span class="st">'mean'</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Calculate correlation between monthly BTM and solar radiation</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>        correlation <span class="op">=</span> monthly_stats[method].corr(monthly_stats[<span class="st">'surface_solar_radiation_downwards'</span>])</span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Determine status</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> correlation <span class="op">&gt;</span> <span class="fl">0.7</span>:</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>            status <span class="op">=</span> <span class="st">"✓ EXCELLENT"</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> correlation <span class="op">&gt;</span> <span class="fl">0.5</span>:</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>            status <span class="op">=</span> <span class="st">"✓ GOOD"</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> correlation <span class="op">&gt;</span> <span class="fl">0.3</span>:</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>            status <span class="op">=</span> <span class="st">"⚠ WEAK"</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>            status <span class="op">=</span> <span class="st">"✗ POOR"</span></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>method<span class="sc">:&lt;15}</span><span class="ss">: </span><span class="sc">{</span>correlation<span class="sc">:.3f}</span><span class="ss"> </span><span class="sc">{</span>status<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Interpretation:"</span>)</span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"- &gt; 0.7: Strong seasonal pattern (BTM high in summer, low in winter)"</span>)</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"- 0.5-0.7: Moderate seasonal pattern"</span>)</span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"- 0.3-0.5: Weak seasonal pattern"</span>) </span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"- &lt; 0.3: Poor/unrealistic seasonal pattern"</span>)</span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick validation: BTM should correlate with solar radiation</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>correlation <span class="op">=</span> final_results.groupby(final_results[<span class="st">'DateTime'</span>].dt.month).agg({</span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a>    <span class="st">'btm_ensemble'</span>: <span class="st">'mean'</span>,</span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>    <span class="st">'surface_solar_radiation_downwards'</span>: <span class="st">'mean'</span></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>}).corr().iloc[<span class="dv">0</span>,<span class="dv">1</span>]</span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"BTM-Solar correlation by month: </span><span class="sc">{</span>correlation<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a><span class="co"># Should be &gt; 0.7 for reasonable estimates</span></span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate final "true demand"</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a>final_results[<span class="st">'true_demand'</span>] <span class="op">=</span> final_results[<span class="st">'demand'</span>] <span class="op">+</span> final_results[<span class="st">'btm_ensemble'</span>]</span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"=== BTM Solar Estimation Comparison  ==="</span>)</span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a>btm_comparison <span class="op">=</span> final_results.groupby(<span class="st">'year'</span>)[</span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>    [<span class="st">'btm_method1'</span>, <span class="st">'btm_method2'</span>, <span class="st">'btm_method3'</span>, <span class="st">'btm_ensemble'</span>]</span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a>].<span class="bu">sum</span>().<span class="bu">round</span>(<span class="dv">2</span>)</span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Annual BTM Solar Generation Estimates (GWh):"</span>)</span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(btm_comparison <span class="op">/</span> <span class="dv">1000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div id="combine-methods-1" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== QUICK BTM SANITY CHECKS ===
+</pre>
+</div>
+<div id="combine-methods-2" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">-------------------------------------------------------
+</pre>
+</div>
+<div id="combine-methods-3" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">btm_method1    : <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.665</span> ✓ GOOD
+</pre>
+</div>
+<div id="combine-methods-4" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">btm_method2    : <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.428</span> ⚠ WEAK
+</pre>
+</div>
+<div id="combine-methods-5" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">btm_method3    : <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.448</span> ⚠ WEAK
+</pre>
+</div>
+<div id="combine-methods-6" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">btm_ensemble   : <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.623</span> ✓ GOOD
+</pre>
+</div>
+<div id="combine-methods-7" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Interpretation:
+</pre>
+</div>
+<div id="combine-methods-8" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">- &gt; <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.7</span>: Strong seasonal pattern <span style="font-weight: bold">(</span>BTM high in summer, low in winter<span style="font-weight: bold">)</span>
+</pre>
+</div>
+<div id="combine-methods-9" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">- <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.5</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.7</span>: Moderate seasonal pattern
+</pre>
+</div>
+<div id="combine-methods-10" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">- <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.3</span>-<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.5</span>: Weak seasonal pattern
+</pre>
+</div>
+<div id="combine-methods-11" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">- &lt; <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.3</span>: Poor/unrealistic seasonal pattern
+</pre>
+</div>
+<div id="combine-methods-12" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">BTM-Solar correlation by month: <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">0.623</span>
+</pre>
+</div>
+<div id="combine-methods-13" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">=== BTM Solar Estimation Comparison  ===
+</pre>
+</div>
+<div id="combine-methods-14" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">Annual BTM Solar Generation Estimates <span style="font-weight: bold">(</span>GWh<span style="font-weight: bold">)</span>:
+</pre>
+</div>
+<div id="combine-methods-15" class="cell-output cell-output-display">
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">      btm_method1  btm_method2  btm_method3  btm_ensemble
+year                                                     
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2020</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">354.71597</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">48106.82440</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">152.99930</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2732.23556</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2021</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">349.28197</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">37182.30091</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">292.89415</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2188.11352</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2022</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">314.28137</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">44290.42227</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">340.77754</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2514.41322</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2023</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">617.03660</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">54717.47437</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">198.94304</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">3301.15381</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2024</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">591.48834</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">48896.97577</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">520.17712</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">3003.19715</span>
+<span style="color: #008080; text-decoration-color: #008080; font-weight: bold">2025</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">427.86416</span>  <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">19702.59202</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">287.37575</span>    <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">1384.57613</span>
+</pre>
+</div>
+</div>
+</section>
+</section>
+<section id="summary" class="level2">
+<h2 class="anchored" data-anchor-id="summary">Summary</h2>
+<p>Based on the predictions from the different models, and having evaluated different combinations of them, we came to the conclusion that the most robust model is the Random Forest method used in method 1. Weighting different combinations of the models produced a closer correlation with the seasonal pattern using this model. Hence, we will use this model in the final answer (discussed in <code>answer_questio_2.qmd</code>).</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
