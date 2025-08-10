@@ -1,5 +1,6 @@
 ---
 title: "Question 2: Detecting True Demand Growth in a Solar-Rich Energy System"
+subtitle: "Model evaluation"
 author: "Carlos Peralta"
 format: html
 jupyter: python3
@@ -23,10 +24,11 @@ This notebook addresses Question 2 of the meteorological data scientist case stu
 4.  How has BTM solar generation evolved from 2020 to present?
 5.  What is the year-over-year growth in *true* demand?
 
-In order to answer these quetions we will do some feature engineering and
+In order to answer these questions we will do some feature engineering and
 then build multiple estimation methods based on weather (baseline), regression
 and time series decomposition.
-
+Based on this comparison we will select a particular model or
+an ensemble of them to answer the questions in the next notebook (`answer_question_2.qmd`).
 
 ## Setup
 
@@ -915,105 +917,12 @@ print("Annual BTM Solar Generation Estimates (GWh):")
 print(btm_comparison / 1000)
 ```
 
-## Answering the Guiding Questions
-
-### Question 2.1: How can we isolate the effect of BTM solar generation on observed demand?
-
-**Answer:** We isolate the BTM solar effect by modeling the *expected* electricity demand during solar hours based on data from *non-solar hours*. This approach creates a counterfactual baseline of what demand would look like without any BTM solar. The BTM effect is then quantified as the **gap** between this predicted baseline and the actual observed demand. We use three distinct modeling techniques (Random Forest, Ridge Regression, and Time Series Decomposition) to create this baseline, and combine them into a robust ensemble to ensure our results are not dependent on a single model's assumptions.
-
-### Question 2.2: Can you estimate what the demand would have been during solar hours if there were no rooftop solar?
-
-**Answer:** Yes. The `true_demand` column in our final dataset represents this estimation. By adding our calculated `btm_ensemble` generation back to the `demand` that was observed by the grid, we reconstruct the total electricity consumption.
-
-```{python}
-#| label: answer-q2
-# Plot a sample day to illustrate the concept
-sample_day = final_results[final_results['DateTime'].dt.date == pd.to_datetime('2023-07-15').date()].copy()
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=sample_day['hour'], y=sample_day['demand'], name='Observed Demand', mode='lines', line=dict(color='blue', width=2)))
-fig.add_trace(go.Scatter(x=sample_day['hour'], y=sample_day['true_demand'], name='Estimated True Demand (Counterfactual)', mode='lines', line=dict(color='red', dash='dash')))
-fig.add_trace(go.Bar(x=sample_day['hour'], y=sample_day['btm_ensemble'], name='Estimated BTM Solar', marker_color='green', opacity=0.5))
-
-fig.update_layout(
-    title='Counterfactual Demand on a Sunny Day (July 15, 2023)',
-    xaxis_title='Hour of Day',
-    yaxis_title='Demand / Generation (MWh)',
-    legend_title='Metric'
-)
-fig.show()
-```
-
-### Question 2.3: Estimate the difference between projected demand and observed demand.
-
-**Answer:** The difference is our `btm_ensemble` estimate. The table below summarizes this difference annually. The gap has grown substantially, from an estimated 1,880 GWh in 2020 to over 10,000 GWh in 2024.
-
-```{python}
-#| label: answer-q3
-annual_gaps = final_results.groupby('year').agg(
-    demand_gap_gwh=('btm_ensemble', lambda x: x.sum() / 1000),
-    avg_hourly_gap_mwh=('btm_ensemble', 'mean'),
-    max_hourly_gap_mwh=('btm_ensemble', 'max')
-).round(1)
-
-print("Annual Difference (Projected - Observed Demand):")
-print(annual_gaps)
-```
-
-### Question 2.4: How has BTM solar generation evolved from 2020 to the present?
-
-**Answer:** BTM solar generation has evolved dramatically, showing exponential growth. Our analysis estimates that BTM generation has increased by over 400% between 2020 and 2024. It now represents a significant portion of Germany's total solar output, being equivalent to over 20% of the grid-scale solar generation in 2024.
-
-```{python}
-#| label: answer-q4
-btm_evolution = final_results.groupby('year').agg(
-    btm_total_gwh=('btm_ensemble', lambda x: x.sum() / 1000),
-    grid_solar_gwh=('power', lambda x: x.sum() / 1000)
-)
-btm_evolution['btm_yoy_growth'] = btm_evolution['btm_total_gwh'].pct_change() * 100
-btm_evolution['btm_as_pct_of_grid'] = (btm_evolution['btm_total_gwh'] / btm_evolution['grid_solar_gwh']) * 100
-
-print("Evolution of BTM Solar Generation (2020-2024):")
-print(btm_evolution.round(1))
-
-# Plot the evolution
-fig = make_subplots(specs=[[{"secondary_y": True}]])
-fig.add_trace(go.Bar(x=btm_evolution.index, y=btm_evolution['grid_solar_gwh'], name='Grid Solar (GWh)', marker_color='lightblue'), secondary_y=False)
-fig.add_trace(go.Bar(x=btm_evolution.index, y=btm_evolution['btm_total_gwh'], name='BTM Solar (GWh)', marker_color='darkgreen'), secondary_y=False)
-fig.add_trace(go.Scatter(x=btm_evolution.index, y=btm_evolution['btm_as_pct_of_grid'], name='BTM as % of Grid', mode='lines+markers', line=dict(color='red')), secondary_y=True)
-fig.update_layout(title_text='Evolution of BTM vs. Grid Solar Generation')
-fig.update_yaxes(title_text="Total Generation (GWh)", secondary_y=False)
-fig.update_yaxes(title_text="BTM as % of Grid Solar", secondary_y=True)
-fig.show()
-```
-
-### What is the year-over-year growth in *true* demand?
-
-**Answer:** After accounting for the BTM solar effect, we can calculate the growth in Germany's *true* electricity demand. The analysis shows that while observed grid demand has appeared stagnant or even declined in some years, the true underlying demand has been growing consistently. The true demand grew by approximately 1.5% from 2022 to 2023, a period where observed demand appeared to shrink by -0.8%. This highlights the critical importance of this analysis: failing to account for BTM solar gives a misleading picture of energy consumption trends.
-
-```{python}
-#| label: answer-q5
-# Calculate true demand growth
-annual_demand = final_results.groupby('year').agg(
-    observed_demand_twh=('demand', lambda x: x.sum() / 1e6),
-    true_demand_twh=('true_demand', lambda x: x.sum() / 1e6)
-)
-
-annual_demand['observed_growth_pct'] = annual_demand['observed_demand_twh'].pct_change() * 100
-annual_demand['true_growth_pct'] = annual_demand['true_demand_twh'].pct_change() * 100
-
-print("Year-over-Year Growth: Observed vs. True Demand")
-print(annual_demand.round(2))
-
-# Plot the comparison
-fig = go.Figure()
-fig.add_trace(go.Bar(x=annual_demand.index, y=annual_demand['observed_growth_pct'], name='Observed Demand Growth (%)'))
-fig.add_trace(go.Bar(x=annual_demand.index, y=annual_demand['true_growth_pct'], name='True Demand Growth (%)'))
-fig.update_layout(
-    title='YoY Growth: Observed vs. True Demand',
-    xaxis_title='Year',
-    yaxis_title='Annual Growth (%)',
-    barmode='group'
-)
-fig.show()
-```
+## Summary
+Based on the predictions from the different models, and having
+evaluated different combinations of them, we came
+to the conclusion that the most robust model is the Random Forest method
+used in method 1. 
+Weighting different combinations of the models produced
+a closer correlation with the seasonal pattern using
+this model. Hence, we will use this model in the final
+answer (discussed in `answer_questio_2.qmd`).
