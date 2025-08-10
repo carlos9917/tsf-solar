@@ -1,8 +1,9 @@
 ---
-title: "Germany Solar Power Forecasting"
-subtitle: "Question 1 - Prediction using Machine Learning Approach with Physics-Informed Features"
+title: "Question 1 - Prediction using Machine Learning Approach with Physics-Informed Features"
+subtitle: "Model evaluation"
 author: "Carlos Peralta"
-date: "`r Sys.Date()`"
+date: "9 August 2025"
+date-modified: last-modified
 format:
   html:
     theme: cosmo
@@ -32,14 +33,15 @@ It expands the original data set with physics-based features that include:
 
 The model architecture is implemented with proper regularization and uncertainty quantification,
 with walk-forward validation and comprehensive metrics.
-This notebooks evaluates the following models
+This notebook evaluates the following models:
+
 - Persistence (baseline)
 - Ridge Regression
-- LightGBM
-- XGBoost
+- XGBoost (gradient boosted decision tree, popular ensemble model for time series prediction)
+- LightGBM (similar to XGBoost where trees grow depth-wise, while in LightGBM, trees grow leaf-wise)
 - Random Forest
-- FFN
-- LSTM
+- FFN (Feed Forward Neural Network or multilayer perceptron)
+- LSTM (long short term memory neural network)
 
 ## Setup and Dependencies
 
@@ -1718,3 +1720,6 @@ print(f"   📄 forecast_q1_detailed.csv - With uncertainty bands")
 print("="*80)
 ```
 ---
+
+Based on the current results, we will focus on LightGBM  to deliver
+the forecast. The results are presented in `answer_question_1.qmd`.
