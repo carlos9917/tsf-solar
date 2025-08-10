@@ -22,8 +22,11 @@ This notebook provides a probabilistic approach to forecasting Germany's hourly 
 selects the most effective approaches from the first attempt at modelling the data set, choosing again
 persistence as baseline and using quantile Regression with LightGBM.
 The answer is written to two files:
+
 - `forecast_q1.csv` for a deterministic forecast
+
 - `forecast_q1_probabilistic.csv` for a probabilistic forecast
+
 
 ## 2. Setup and Data Loading
 
