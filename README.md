@@ -33,7 +33,7 @@ tsf-solar/
 │   └── logs/              # Training logs
 │
 ├── doc/                   # Documentation
-│   └── CaseStudy_VitusCommodities.pdf
+│   └── CaseStudyQuestions.md
 │
 ├── requirements.txt       # Python dependencies
 ├── README.md             # This file
@@ -98,11 +98,19 @@ tsf-solar/
 1. **Exploratory Data Analysis**
    ```bash
    quarto render notebooks/eda_question_1.qmd
+   quarto render notebooks/eda_question_2.qmd
    ```
 
 2. **Model Development and Forecasting**
    ```bash
    quarto render notebooks/modelling_question_1.qmd
+   quarto render notebooks/modelling_question_2.qmd
+   ```
+
+3. **Answer to questions** 
+   ```bash
+   quarto render notebooks/answer_questio1.qmd
+   quarto render notebooks/answer_questio2.qmd
    ```
 
 3. **View Results**
@@ -119,37 +127,49 @@ tsf-solar/
 
 - **`modelling_question_1.qmd`**: Modeling pipeline for question 1 featuring:
   - Feature engineering based on EDA insights
-  - Four different model implementations
+  - Seven different model implementations
   - Model comparison and evaluation
+  - Model selection
+
+- **`answer_question_1.qmd`**: Final answer to question 1.
   - Final forecast generation for June 2025
 
 - **`modelling_question_2.qmd`**: Modeling pipeline for question 2 featuring:
   - Feature engineering based on EDA insights
   - Three different model implementations
   - Model ensemble based on the three previous models
-  - Specific answers to questions raised in Question 2.
+  - Model selection
 
-## 🤖 Models Implemented
+- **`answer_question_2.qmd`**: Final answer to question 2.
+  - Answers to key questions
 
-### 1. Ridge Regression
+## 🤖 Models Tested
+
+### 1. Persistence
+
+### 2. Ridge Regression
 - Simple linear model for interpretability
 - Feature importance analysis
 - Quick baseline performance
 
-### 2. XGBoost
+### 3. XGBoost
 - Gradient boosting for tabular data
 - Hyperparameter tuning with early stopping
 - Feature importance ranking
 
-### 3. Feedforward Neural Network 
+### 4. Feedforward Neural Network 
 - Multi-layer perceptron with dropout
 - Learning rate scheduling
 - Early stopping and checkpointing
 
-### 4. LSTM
+### 5. LSTM
 - Sequence modeling for temporal dependencies
 - 24-hour lookback window
 - Regularization and proper sequence handling
+
+### 6.
+
+### 7.
 
 ## 📈 Key Results
 
@@ -158,7 +178,7 @@ The models are evaluated using:
 - **MAE** (Mean Absolute Error)
 - **R²** (Coefficient of Determination)
 
-The best performing model is automatically selected for the final June 2025 forecast based on validation RMSE.
+The best performing model is selected for answering the questions.
 
 ## 🔧 Technical Details
 
