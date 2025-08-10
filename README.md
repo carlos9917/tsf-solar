@@ -12,31 +12,28 @@ This repository contains a solution for a case study on solar power forecasting.
 ```
 tsf-solar/
 │
-├── data/                   # Raw and processed data (gitignored)
-│   ├── raw/               # Original datasets
-│   └── processed/         # Cleaned and feature-engineered data
+├── data/                   # data provided
 │
 ├── notebooks/             # Analysis notebooks
-│   ├── eda_question_1.qmd           # Exploratory Data Analysis
-│   ├── eda_question_2.qmd           # Exploratory Data Analysis
-│   └── modelling_question_1.qmd     # Model development and comparison
-│   └── modelling_question_2.qmd     # Model development and comparison
+│   ├── eda_question_1.qmd           # Exploratory Data Analysis for question 1
+│   ├── eda_question_2.qmd           # Exploratory Data Analysis for question 2
+│   └── model_evaluation_question_1.qmd     # Model development and comparison for question 1
+│   └── model_evaluation_question_2.qmd     # Model development and comparison for question 2
+│   └── answer_question_1.qmd     # Answer to question 1
+│   └── answer_question_2.qmd     # Answer to question 2
+│   └── requirements.txt #requirements for venv (should work the same with requirements.txt in root dir)
 │
-├── src/                   # Source code modules
-│   ├── __init__.py
-│   ├── models.py          # PyTorch Lightning model classes
-│   ├── utils.py           # Utility functions
-│   └── data_pipeline.py   # Data loading and preprocessing
+├── pipeline_example/      # Example data pipeline (question 3)
+│   ├── run.sh    # main script to run pipeline
+│   ├── src    # data classes and scheduler
+│   ├── config    # pipeline configuration file
+│   ├── data    # data processing output
+│   └── logs/              #  logs
 │
-├── outputs/               # Generated results (gitignored)
-│   ├── forecast_q1.csv    # Final predictions deterministic
-│   ├── forecast_q1_probabilistic.csv    # Final predictions probabilistic
-│   └── logs/              # Training logs
-│
-├── doc/                   # Documentation
+├── doc/                   # questions
 │   └── CaseStudyQuestions.md
 │
-├── requirements.txt       # Python dependencies
+├── requirements.txt       # Python dependencies for all notebooks
 ├── README.md             # This file
 ├── .gitignore           # Git ignore rules
 ```
@@ -75,27 +72,23 @@ tsf-solar/
 
 
 4. **Install R and R Libraries**
-   A working installation of R (version 4.5.1 or newer) is required to run the R-based analysis scripts and notebooks.
+   A working installation of R (version 4.5.1 or newer) is required to run the R-based analysis scripts for the data pipeline.
 
    - **For the `pipeline_example`:** The R packages are installed automatically when you run the `analysis.R` script, as mentioned in the [pipeline how-to guide](./pipeline_example/howto.md).
-   - **For other R scripts (`.qmd` files in `doc/`):** You will need to install the required libraries manually. You can do this by opening an R session and running:
-     ```R
-     install.packages(c("tidyverse", "lubridate", "plotly", "skimr", "arrow", "lwgeom"))
-     ```
-   To ensure environment isolation, you may consider using a tool like `renv`.
-
-### Data Setup
-
-1. Place your data files in the `data/raw/` directory:
-   - `germany_atm_features_q1.csv`
-   - `germany_solar_observation_q1.csv`
-
-2. The notebooks will automatically load and process the data.
+   To ensure environment isolation for R, one may consider using a tool like `renv`.
 
 ## 📊 Usage
 
 ### Running the Analysis
 
+0. **Install the virtual environment**
+    
+   ```bash
+    cd notebooks
+    uv venv .venv --python 3.11
+    source .venv/bin/activate
+    uv pip install -r requirements.txt
+   ```
 1. **Exploratory Data Analysis**
    ```bash
    quarto render notebooks/eda_question_1.qmd
@@ -104,19 +97,19 @@ tsf-solar/
 
 2. **Model Development and Forecasting**
    ```bash
-   quarto render notebooks/modelling_question_1.qmd
-   quarto render notebooks/modelling_question_2.qmd
+   quarto render notebooks/model_evaluation_question_1.qmd #NOTE: might take 30-45 minutes...
+   quarto render notebooks/model_evaluation_question_2.qmd
    ```
 
 3. **Answer to questions** 
    ```bash
-   quarto render notebooks/answer_questio1.qmd
-   quarto render notebooks/answer_questio2.qmd
+   quarto render notebooks/answer_question1.qmd
+   quarto render notebooks/answer_question2.qmd
    ```
 
 3. **View Results**
    - Open the generated HTML files in your browser
-   - Check `outputs/forecast_q1.csv` for final predictions
+   - Check `forecast_q1.csv` and `forecast_q1_probabilistic.csv` for final predictions
 
 ### Key Notebooks
 
@@ -126,7 +119,13 @@ tsf-solar/
   - Correlation analysis
   - Feature importance identification
 
-- **`modelling_question_1.qmd`**: Modeling pipeline for question 1 featuring:
+- **`eda_question_2.qmd`**: Exploratory data analysis for question 2 including:
+  - Data quality assessment
+  - Time series visualization
+  - Correlation analysis
+  - Feature importance identification
+
+- **`model_evaluation_question_1.qmd`**: Modeling pipeline for question 1 featuring:
   - Feature engineering based on EDA insights
   - Seven different model implementations
   - Model comparison and evaluation
@@ -135,7 +134,7 @@ tsf-solar/
 - **`answer_question_1.qmd`**: Final answer to question 1.
   - Final forecast generation for June 2025
 
-- **`modelling_question_2.qmd`**: Modeling pipeline for question 2 featuring:
+- **`model_evaluation_question_2.qmd`**: Modeling pipeline for question 2 featuring:
   - Feature engineering based on EDA insights
   - Three different model implementations
   - Model ensemble based on the three previous models
@@ -155,9 +154,6 @@ tsf-solar/
 ### 4. Feedforward Neural Network 
 
 ### 5. LSTM
-- Sequence modeling for temporal dependencies
-- 24-hour lookback window
-- Regularization and proper sequence handling
 
 ### 6. LightGBM
 
@@ -171,6 +167,17 @@ The models are evaluated using:
 - **R²** (Coefficient of Determination)
 
 The best performing model is selected for answering the questions.
+
+
+## 📦 Pipeline Example
+
+This repository includes a sample data pipeline in the `pipeline_example/` directory. This pipeline demonstrates how to:
+- Schedule and automate data extraction from a source (in this case, GFS data).
+- Process the raw data into a structured format.
+- Perform analysis and generate visualizations using both Python and R.
+
+For detailed instructions on how to set up and run this example pipeline, please see the guide:
+- [**How to Run the GFS Wind Power Density Pipeline**](./pipeline_example/howto.md)
 
 ## 🔧 Technical Details
 
@@ -190,8 +197,7 @@ The best performing model is selected for answering the questions.
 
 After running the notebooks, you'll find:
 
-- `outputs/forecast_q1.csv`: Final hourly predictions for June 2025
-- `outputs/logs/`: Training logs and model checkpoints
+- `forecast_q1.csv` and `forecast_q1_probabilistic.csv`: Final hourly predictions for June 2025
 - HTML reports from rendered Quarto notebooks
 
 ## 📞 Contact
@@ -199,13 +205,3 @@ After running the notebooks, you'll find:
 **Carlos Peralta**
 - GitHub: [@carlos9917](https://github.com/carlos9917)
 - Email: [carlos9917@gmail.com]
-
-## 📦 Pipeline Example
-
-This repository includes a sample data pipeline in the `pipeline_example/` directory. This pipeline demonstrates how to:
-- Schedule and automate data extraction from a source (in this case, GFS data).
-- Process the raw data into a structured format.
-- Perform analysis and generate visualizations using both Python and R.
-
-For detailed instructions on how to set up and run this example pipeline, please see the guide:
-- [**How to Run the GFS Wind Power Density Pipeline**](./pipeline_example/howto.md)
