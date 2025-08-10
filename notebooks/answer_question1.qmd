@@ -2,6 +2,7 @@
 title: "Solar Power Forecasting with Probabilistic Predictions"
 author: "Carlos Peralta"
 date: "9 August 2025"
+date-modified: last-modified
 format: 
   html:
     toc: true
