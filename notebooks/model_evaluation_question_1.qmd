@@ -32,8 +32,14 @@ It expands the original data set with physics-based features that include:
 
 The model architecture is implemented with proper regularization and uncertainty quantification,
 with walk-forward validation and comprehensive metrics.
-This notebooks evaluates
-
+This notebooks evaluates the following models
+- Persistence (baseline)
+- Ridge Regression
+- LightGBM
+- XGBoost
+- Random Forest
+- FFN
+- LSTM
 
 ## Setup and Dependencies
 
@@ -435,7 +441,7 @@ def create_comprehensive_temporal_features(data, target_col='power'):
     data['month'] = data.index.month
     data['quarter'] = data.index.quarter
     
-    # Enhanced cyclical encoding (IMPROVED from original)
+    # Cyclical encoding
     data['hour_sin'] = np.sin(2 * np.pi * data['hour'] / 24)
     data['hour_cos'] = np.cos(2 * np.pi * data['hour'] / 24)
     data['day_sin'] = np.sin(2 * np.pi * data['day_of_year'] / 365.25)
@@ -551,7 +557,7 @@ if 'power' in data.columns:
         axes[0, 2].set_title('Seasonal Pattern\n')
         axes[0, 2].grid(True)
 
-# Hourly pattern (enhanced)
+# Hourly pattern 
 if 'power' in data.columns:
     hourly_stats = data.groupby('hour')['power'].agg(['mean', 'std']).fillna(0)
     axes[1, 0].errorbar(hourly_stats.index, hourly_stats['mean'], 
@@ -822,7 +828,7 @@ selected_features = select_features(data_processed)
 
 ```
 
-## Enhanced Model Training and Validation
+## Model Training and Validation
 
 ```{python}
 #| label: model-training
@@ -912,8 +918,7 @@ print("📊 Training Persistence Model (Baseline)...")
 
 class PersistenceModel:
     """
-    Enhanced persistence model with exponential weighting
-    Same concept as original but with better implementation
+    Persistence model with exponential weighting
     """
     def __init__(self):
         self.historical_patterns = {}
@@ -953,8 +958,8 @@ persistence_pred = persistence_model.predict(val_data.index)
 models['Persistence'] = persistence_model
 results['Persistence'] = comprehensive_evaluation(y_val, persistence_pred, 'Persistence')
 
-# 2. Enhanced Ridge Regression
-print("📈 Training Enhanced Ridge Regression...")
+# 2. Ridge Regression
+print("📈 Training Ridge Regression...")
 
 # Use TimeSeriesSplit for hyperparameter tuning
 tscv = TimeSeriesSplit(n_splits=5)
@@ -976,8 +981,8 @@ results['Ridge'] = comprehensive_evaluation(y_val, ridge_pred, 'Ridge')
 
 print(f"   ✅ Best Ridge alpha: {ridge_model.best_params_['alpha']}")
 
-# 3. Enhanced LightGBM
-print("🌟 Training Enhanced LightGBM...")
+# 3. LightGBM
+print("🌟 Training LightGBM...")
 lgb_model = lgb.LGBMRegressor(
     n_estimators=2000,
     learning_rate=0.05,
@@ -997,8 +1002,8 @@ lgb_pred = lgb_model.predict(X_val)
 models['LightGBM'] = lgb_model
 results['LightGBM'] = comprehensive_evaluation(y_val, lgb_pred, 'LightGBM')
 
-# 4. Enhanced XGBoost  
-print("🚀 Training Enhanced XGBoost...")
+# 4. XGBoost  
+print("🚀 Training XGBoost...")
 xgb_model = xgb.XGBRegressor(
     n_estimators=2000,
     learning_rate=0.05,
