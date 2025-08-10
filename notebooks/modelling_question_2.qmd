@@ -131,7 +131,7 @@ print(f"Number of holidays identified: {data_q2_expanded['is_holiday'].sum()}")
 
 ### Method 1: Demand Gap Analysis
 
-This method is now purely data-driven. It learns a "normal" demand pattern from hours with no solar generation and uses it to predict what demand *should have been* during solar hours. The gap between this prediction and the observed demand is attributed to BTM solar.
+This method learns a "normal" demand pattern from hours with no solar generation and uses it to predict what demand *should have been* during solar hours. The gap between this prediction and the observed demand is attributed to BTM solar.
 
 ```{python}
 #| label: method1

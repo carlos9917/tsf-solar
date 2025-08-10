@@ -1,0 +1,80 @@
+# Core Data Science & Machine Learning
+pandas==2.3.0
+numpy==2.2.6
+scikit-learn==1.7.1
+scipy==1.15.3
+joblib==1.5.1
+
+# Visualization
+matplotlib==3.10.3
+seaborn==0.13.2
+plotly==6.2.0
+
+# Machine Learning Libraries
+xgboost==3.0.3
+lightgbm>=4.0.0
+
+# Deep Learning (PyTorch)
+torch==2.7.1
+pytorch-lightning==2.5.2
+lightning-utilities==0.15.2
+torchmetrics==1.8.0
+
+# PyTorch CUDA dependencies (for GPU support)
+nvidia-cublas-cu12==12.6.4.1
+nvidia-cuda-cupti-cu12==12.6.80
+nvidia-cuda-nvrtc-cu12==12.6.77
+nvidia-cuda-runtime-cu12==12.6.77
+nvidia-cudnn-cu12==9.5.1.17
+nvidia-cufft-cu12==11.3.0.4
+nvidia-curand-cu12==10.3.7.77
+nvidia-cusolver-cu12==11.7.1.2
+nvidia-cusparse-cu12==12.5.4.2
+nvidia-nccl-cu12==2.26.2
+nvidia-nvjitlink-cu12==12.6.85
+nvidia-nvtx-cu12==12.6.77
+triton==3.3.1
+
+# Time Series & Statistical Analysis
+statsmodels==0.14.4
+holidays==0.78
+
+# Solar Physics
+pvlib>=0.10.0
+
+# Data Processing & File I/O
+pytz==2025.2
+python-dateutil==2.9.0.post0
+pyyaml==6.0.2
+requests==2.32.4
+urllib3==2.4.0
+
+# Weather/Climate Data
+netcdf4==1.7.2
+xarray==2025.6.1
+cftime==1.6.4.post1
+cfgrib==0.9.15.0
+eccodes==2.42.0
+cdsapi==0.7.6
+ecmwf-datastores-client==0.2.0
+
+# Development & Utilities
+tqdm==4.67.1
+rich==14.1.0
+ipython==9.3.0
+jupyter-core==5.8.1
+
+# Required Dependencies
+certifi==2025.6.15
+charset-normalizer==3.4.2
+click==8.2.1
+filelock==3.18.0
+fsspec==2025.7.0
+idna==3.10
+jinja2==3.1.6
+markupsafe==3.0.2
+packaging==25.0
+setuptools==80.9.0
+six==1.17.0
+threadpoolctl==3.6.0
+tzdata==2025.2
