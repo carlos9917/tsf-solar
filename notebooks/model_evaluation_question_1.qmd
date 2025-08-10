@@ -22,7 +22,7 @@ execute:
   message: false
 ---
 
-## Executive Summary
+## Introduction
 
 This notebook provides a machine learning implementation for forecasting Germany's hourly solar power generation for June 2025. 
 It expands the original data set with physics-based features that include:

@@ -29,7 +29,8 @@ tsf-solar/
 │   └── data_pipeline.py   # Data loading and preprocessing
 │
 ├── outputs/               # Generated results (gitignored)
-│   ├── forecast_q1.csv    # Final predictions
+│   ├── forecast_q1.csv    # Final predictions deterministic
+│   ├── forecast_q1_probabilistic.csv    # Final predictions probabilistic
 │   └── logs/              # Training logs
 │
 ├── doc/                   # Documentation
@@ -148,30 +149,21 @@ tsf-solar/
 ### 1. Persistence
 
 ### 2. Ridge Regression
-- Simple linear model for interpretability
-- Feature importance analysis
-- Quick baseline performance
 
 ### 3. XGBoost
-- Gradient boosting for tabular data
-- Hyperparameter tuning with early stopping
-- Feature importance ranking
 
 ### 4. Feedforward Neural Network 
-- Multi-layer perceptron with dropout
-- Learning rate scheduling
-- Early stopping and checkpointing
 
 ### 5. LSTM
 - Sequence modeling for temporal dependencies
 - 24-hour lookback window
 - Regularization and proper sequence handling
 
-### 6.
+### 6. LightGBM
 
-### 7.
+### 7. Random Forest
 
-## 📈 Key Results
+## Model evaluation
 
 The models are evaluated using:
 - **RMSE** (Root Mean Square Error)
