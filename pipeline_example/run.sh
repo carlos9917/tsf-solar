@@ -17,10 +17,10 @@ show_help() {
 }
 
 
-# Activate virtual environment if it exists
-if [ -f ".venv/bin/activate" ]; then
-    source .venv/bin/activate
-fi
+## Activate virtual environment if it exists
+#if [ -f ".venv/bin/activate" ]; then
+#    source .venv/bin/activate
+#fi
 
 # Get the first argument to determine the mode
 MODE=$1
@@ -36,6 +36,7 @@ fi
 # --- Scheduler Mode ---
 if [ "$MODE" == "scheduler" ]; then
     echo "Starting the scheduler..."
+    source .venv/bin/activate
     python3 src/scheduler.py --mode scheduler
     
 # --- R Shiny Dashboard Mode ---
@@ -43,14 +44,10 @@ elif [ "$MODE" == "dashboard" ]; then
     echo "Starting the R Shiny dashboard..."
     Rscript src/dashboard.R
     
-# --- Python Dash Dashboard Mode ---
-elif [ "$MODE" == "dashboard-py" ]; then
-    echo "Starting the Python Dash dashboard..."
-    python3 src/dashboard.py
-
 # --- Manual Mode ---
 elif [ "$MODE" == "manual" ]; then
     echo "Running manual data extraction..."
+    source .venv/bin/activate
     python3 src/scheduler.py --mode manual "$@"
     
 # --- Original Mode (for compatibility) ---
@@ -60,17 +57,21 @@ elif [ "$MODE" == "default" ]; then
     # Get the previous cycle (00, 06, 12, 18)
     # This is a simple example; a robust implementation would check for availability
     HOUR=$(date +%H)
-    if (( HOUR >= 0 && HOUR < 6 )); then CYCLE="18"; DATE=$(date -d "yesterday" +%Y%m%d); fi
+    # Remove leading zero to avoid octal interpretation
+    HOUR_NUM=$((10#$HOUR))
+    echo $DATE $HOUR
+    if (( HOUR_NUM >= 0 && HOUR_NUM < 6 )); then CYCLE="18"; DATE=$(date -d "yesterday" +%Y%m%d); fi
 
-    if (( HOUR >= 6 && HOUR < 12 )); then CYCLE="00"; fi
+    if (( HOUR_NUM >= 6 && HOUR_NUM < 12 )); then CYCLE="00"; fi
 
-    if (( HOUR >= 12 && HOUR < 18 )); then CYCLE="06"; fi
+    if (( HOUR_NUM >= 12 && HOUR_NUM < 18 )); then CYCLE="06"; fi
 
-    if (( HOUR >= 18 )); then CYCLE="12"; fi
+    if (( HOUR_NUM >= 18 )); then CYCLE="12"; fi
 
     echo "Running pipeline for date $DATE and cycle $CYCLE"
 
     # Run the Python data extraction script
+    source .venv/bin/activate
     python3 src/data_extractor.py --date $DATE --cycle $CYCLE
 
 
@@ -97,6 +98,3 @@ elif [ "$MODE" == "default" ]; then
 else
     show_help
 fi
-
-
-
