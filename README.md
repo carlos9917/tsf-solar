@@ -69,6 +69,7 @@ tsf-solar/
 
 3. **Install Quarto** (if not already installed)
    - Follow instructions at: https://quarto.org/docs/get-started/
+   - For a loćal installation, follow: https://quarto.org/docs/download/tarball.html?version=1.7.32&idPrefix=download
 
 
 4. **Install R and R Libraries**
