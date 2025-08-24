@@ -41,10 +41,10 @@ if [ "$MODE" == "scheduler" ]; then
     source .venv/bin/activate
     python3 src/scheduler.py --mode scheduler
     
-# --- R Shiny Dashboard Mode ---
+# --- Dashboard Mode ---
 elif [ "$MODE" == "dashboard" ]; then
     echo "Starting the R Shiny dashboard..."
-    Rscript src/dashboard.R
+    python src/dashboard.py
     
 # --- Manual Mode ---
 elif [ "$MODE" == "manual" ]; then
@@ -79,10 +79,9 @@ elif [ "$MODE" == "default" ]; then
 
     # Check if the python script succeeded
     if [ $? -eq 0 ]; then
-      echo "Python script finished successfully."
-      echo "Running R analysis script..."
-      # Run the R analysis script
-      Rscript src/analysis.R $DATE $CYCLE
+      echo "data extractor script finished successfully."
+      # Run the python analysis script
+      python src/analysis.py --date $DATE --cycle $CYCLE
       if [ $? -eq 0 ]; then
         echo "R script finished successfully."
       else

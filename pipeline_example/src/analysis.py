@@ -1,74 +1,122 @@
+
 import duckdb
 import pandas as pd
-from scipy.spatial import cKDTree
-import numpy as np
-from loguru import logger
-import sys
-sys.path.append('config')
-from config import DATABASE_PATH
+import geopandas as gpd
+from shapely.geometry import Point
+import matplotlib.pyplot as plt
+import os
 
-def calculate_power_at_locations():
+def get_country_shapes():
     """
-    Calculates wind power density at specific locations from the GFS forecast data.
+    Downloads and returns country shapes for Europe.
     """
-    try:
-        # Connect to DuckDB
-        conn = duckdb.connect(DATABASE_PATH)
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    europe = world[world['continent'] == 'Europe']
+    return europe
 
-        # Load wind power plant coordinates
-        plant_coords = pd.read_csv('/home/tenantadmin/tsf-solar/wind_power_plants_coordinates.csv')
-        plant_coords = plant_coords[['lat', 'lon']].dropna().drop_duplicates()
+def create_europe_dashboard_data(db_path, date_str, cycle_str, output_dir):
+    """
+    Generates data for the Europe dashboard.
+    """
+    con = duckdb.connect(db_path)
+    query = f"""
+    SELECT lat, lon, wind_power_density, forecast_hour 
+    FROM gfs_forecasts 
+    WHERE forecast_date = '{date_str}' AND cycle = '{cycle_str}'
+    """
+    gfs_data = con.execute(query).fetchdf()
+    con.close()
 
-        # Load GFS forecast data
-        gfs_data = conn.execute("SELECT DISTINCT lat, lon, forecast_date, cycle, forecast_hour, wind_power_density FROM gfs_forecasts").fetchdf()
+    if gfs_data.empty:
+        print("No data found for the specified date and cycle.")
+        return
 
-        if gfs_data.empty:
-            logger.warning("No GFS data found in the database.")
-            return
+    gfs_data['forecast_datetime'] = pd.to_datetime(date_str) + pd.to_timedelta(gfs_data['forecast_hour'], unit='h')
+    gfs_data['forecast_day'] = gfs_data['forecast_datetime'].dt.date
 
-        # Create a KDTree for fast nearest neighbor search
-        gfs_unique_coords = gfs_data[['lat', 'lon']].drop_duplicates()
-        tree = cKDTree(gfs_unique_coords[['lat', 'lon']].values)
+    daily_avg_wpd = gfs_data.groupby(['lat', 'lon', 'forecast_day'])['wind_power_density'].mean().reset_index()
 
-        # Find the index of the nearest GFS point for each power plant
-        distances, indices = tree.query(plant_coords[['lat', 'lon']].values, k=1)
-        
-        # Get the coordinates of the nearest GFS points
-        nearest_gfs_coords = gfs_unique_coords.iloc[indices]
+    europe = get_country_shapes()
 
-        # Create a DataFrame for merging
-        plant_coords['merge_lat'] = nearest_gfs_coords['lat'].values
-        plant_coords['merge_lon'] = nearest_gfs_coords['lon'].values
+    fig, ax = plt.subplots(1, 1, figsize=(20, 10))
+    europe.boundary.plot(ax=ax)
+    
+    for day in daily_avg_wpd['forecast_day'].unique():
+        day_data = daily_avg_wpd[daily_avg_wpd['forecast_day'] == day]
+        plt.scatter(day_data['lon'], day_data['lat'], c=day_data['wind_power_density'], cmap='viridis', s=1)
 
-        # Merge with GFS data
-        plant_forecasts = pd.merge(
-            gfs_data,
-            plant_coords,
-            left_on=['lat', 'lon'],
-            right_on=['merge_lat', 'merge_lon']
-        )
+    plt.title(f"Daily Average Wind Power Density (GFS Run: {date_str} Cycle {cycle_str})")
+    plt.xlabel("Longitude")
+    plt.ylabel("Latitude")
+    
+    plot_path = os.path.join(output_dir, f"wpd_map_faceted_{date_str}_{cycle_str}.png")
+    plt.savefig(plot_path)
+    print(f"Successfully generated and saved faceted wind power density map to {plot_path}")
 
-        # Create a new table for power plant forecasts
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS wind_power_plant_forecasts (
-                forecast_date TEXT,
-                cycle TEXT,
-                forecast_hour INTEGER,
-                lat DOUBLE,
-                lon DOUBLE,
-                wind_power_density DOUBLE
-            )
-        """)
+    total_avg_wpd = gfs_data.groupby(['lat', 'lon'])['wind_power_density'].mean().reset_index()
+    geometry = [Point(xy) for xy in zip(total_avg_wpd['lon'], total_avg_wpd['lat'])]
+    points_gdf = gpd.GeoDataFrame(total_avg_wpd, geometry=geometry, crs="EPSG:4326")
 
-        # Save to the new table
-        conn.append('wind_power_plant_forecasts', plant_forecasts[['forecast_date', 'cycle', 'forecast_hour', 'lat_y', 'lon_y', 'wind_power_density']].rename(columns={'lat_y': 'lat', 'lon_y': 'lon'}))
-        
-        logger.info(f"Saved {len(plant_forecasts)} records to wind_power_plant_forecasts table.")
+    joined_gdf = gpd.sjoin(points_gdf, europe, how="inner", op='within')
+    country_avg = joined_gdf.groupby('name')['wind_power_density'].mean().reset_index()
+    country_avg = country_avg.sort_values(by='wind_power_density', ascending=False).reset_index(drop=True)
+    country_avg['rank'] = country_avg.index + 1
+    
+    csv_path = os.path.join(output_dir, f"country_rankings_{date_str}_{cycle_str}.csv")
+    country_avg.to_csv(csv_path, index=False)
+    print(f"Successfully saved country rankings to {csv_path}")
 
-        conn.close()
 
-    except Exception as e:
-        logger.error(f"Failed to calculate power at locations: {e}")
+def create_specific_points_dashboard_data(db_path, date_str, cycle_str, coordinates_file, output_dir):
+    """
+    Generates data for the specific points dashboard.
+    """
+    con = duckdb.connect(db_path)
+    query = f"""
+    SELECT lat, lon, wind_power_density, forecast_hour 
+    FROM gfs_forecasts 
+    WHERE forecast_date = '{date_str}' AND cycle = '{cycle_str}'
+    """
+    gfs_data = con.execute(query).fetchdf()
+    con.close()
+
+    if gfs_data.empty:
+        print("No data found for the specified date and cycle.")
+        return
+
+    coordinates = pd.read_csv(coordinates_file)
+
+    gfs_data['geometry'] = [Point(xy) for xy in zip(gfs_data['lon'], gfs_data['lat'])]
+    gfs_gdf = gpd.GeoDataFrame(gfs_data, geometry=gfs_data['geometry'], crs="EPSG:4326")
+
+    coordinates['geometry'] = [Point(xy) for xy in zip(coordinates['lon'], coordinates['lat'])]
+    coord_gdf = gpd.GeoDataFrame(coordinates, geometry=coordinates['geometry'], crs="EPSG:4326")
+
+    joined_gdf = gpd.sjoin_nearest(coord_gdf, gfs_gdf, how="inner")
+    
+    specific_points_avg = joined_gdf.groupby('site_name')['wind_power_density'].mean().reset_index()
+    specific_points_avg = specific_points_avg.sort_values(by='wind_power_density', ascending=False).reset_index(drop=True)
+    specific_points_avg['rank'] = specific_points_avg.index + 1
+
+    csv_path = os.path.join(output_dir, f"specific_points_rankings_{date_str}_{cycle_str}.csv")
+    specific_points_avg.to_csv(csv_path, index=False)
+    print(f"Successfully saved specific points rankings to {csv_path}")
+
+
+def main(date_str, cycle_str):
+    db_path = "data/processed/gfs_data.duckdb"
+    output_dir = "data/processed/plots"
+    coordinates_file = "wind_power_plants_coordinates.csv"
+    
+    os.makedirs(output_dir, exist_ok=True)
+
+    create_europe_dashboard_data(db_path, date_str, cycle_str, output_dir)
+    create_specific_points_dashboard_data(db_path, date_str, cycle_str, coordinates_file, output_dir)
 
 if __name__ == "__main__":
-    calculate_power_at_locations()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", required=True)
+    parser.add_argument("--cycle", required=True)
+    args = parser.parse_args()
+    main(args.date, args.cycle)

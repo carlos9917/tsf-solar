@@ -73,27 +73,27 @@ class GFSScheduler:
     def run_analysis_script(self, date_str, cycle):
         """Run the R analysis script"""
         try:
-            logger.info(f"Running R analysis script for {date_str} cycle {cycle}")
+            logger.info(f"Running analysis script for {date_str} cycle {cycle}")
             import subprocess
             
-            # Path to the R script
-            r_script_path = "src/analysis.R"
+            # Path to the script
+            py_script_path = "src/analysis.py"
             
-            # Command to execute the R script with arguments
-            command = ["Rscript", r_script_path, date_str, cycle]
+            # Command to execute the script with arguments
+            command = ["python", py_script_path, date_str, cycle]
             
             # Execute the command
             result = subprocess.run(command, capture_output=True, text=True)
             
             if result.returncode == 0:
-                logger.info("R script executed successfully")
-                logger.info(f"R script output:\n{result.stdout}")
+                logger.info("Analysis script executed successfully")
+                logger.info(f"Analysis script output:\n{result.stdout}")
             else:
-                logger.error(f"R script execution failed with return code {result.returncode}")
-                logger.error(f"R script error output:\n{result.stderr}")
+                logger.error(f"Analysis script execution failed with return code {result.returncode}")
+                logger.error(f"Analysis script error output:\n{result.stderr}")
                 
         except Exception as e:
-            logger.error(f"Failed to run R analysis script: {e}")
+            logger.error(f"Failed to run analysis script: {e}")
             
     def setup_file_monitoring(self):
         """Setup file system monitoring using watchdog"""
