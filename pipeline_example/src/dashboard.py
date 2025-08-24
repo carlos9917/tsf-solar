@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-import sqlite3
+import duckdb
 import numpy as np
 from datetime import datetime, timedelta
 from loguru import logger
@@ -31,9 +31,9 @@ class GFSDashboard:
     def get_available_dates(self):
         """Get available forecast dates from database"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            conn = duckdb.connect(DATABASE_PATH)
             query = "SELECT DISTINCT forecast_date FROM gfs_forecasts ORDER BY forecast_date DESC"
-            dates = pd.read_sql_query(query, conn)['forecast_date'].tolist()
+            dates = conn.execute(query).fetchdf()['forecast_date'].tolist()
             conn.close()
             return dates
         except Exception as e:
@@ -43,9 +43,9 @@ class GFSDashboard:
     def get_available_cycles(self, date):
         """Get available cycles for a specific date"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            conn = duckdb.connect(DATABASE_PATH)
             query = "SELECT DISTINCT cycle FROM gfs_forecasts WHERE forecast_date = ? ORDER BY cycle"
-            cycles = pd.read_sql_query(query, conn, params=(date,))['cycle'].tolist()
+            cycles = conn.execute(query, [date]).fetchdf()['cycle'].tolist()
             conn.close()
             return cycles
         except Exception as e:
@@ -55,13 +55,13 @@ class GFSDashboard:
     def load_forecast_data(self, date, cycle):
         """Load forecast data for specific date and cycle"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            conn = duckdb.connect(DATABASE_PATH)
             query = """
                 SELECT * FROM gfs_forecasts 
                 WHERE forecast_date = ? AND cycle = ?
                 ORDER BY forecast_hour, lat, lon
             """
-            df = pd.read_sql_query(query, conn, params=(date, cycle))
+            df = conn.execute(query, [date, cycle]).fetchdf()
             conn.close()
             return df
         except Exception as e:
@@ -71,19 +71,35 @@ class GFSDashboard:
     def load_country_rankings(self, date, cycle):
         """Load country rankings for specific date and cycle"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            conn = duckdb.connect(DATABASE_PATH)
             query = """
                 SELECT * FROM country_rankings 
                 WHERE forecast_date = ? AND cycle = ?
                 ORDER BY rank
             """
-            df = pd.read_sql_query(query, conn, params=(date, cycle))
+            df = conn.execute(query, [date, cycle]).fetchdf()
             conn.close()
             return df
         except Exception as e:
             logger.error(f"Failed to load country rankings: {e}")
             return pd.DataFrame()
             
+    def load_plant_forecast_data(self, date, cycle):
+        """Load wind power plant forecast data for specific date and cycle"""
+        try:
+            conn = duckdb.connect(DATABASE_PATH)
+            query = """
+                SELECT * FROM wind_power_plant_forecasts 
+                WHERE forecast_date = ? AND cycle = ?
+                ORDER BY forecast_hour, lat, lon
+            """
+            df = conn.execute(query, [date, cycle]).fetchdf()
+            conn.close()
+            return df
+        except Exception as e:
+            logger.error(f"Failed to load plant forecast data: {e}")
+            return pd.DataFrame()
+
     def create_wind_power_map(self, df, forecast_hour):
         """Create wind power density map for specific forecast hour"""
         if df.empty:
@@ -269,25 +285,11 @@ class GFSDashboard:
                 
             ], style={'marginBottom': 30, 'padding': 20, 'backgroundColor': '#f0f0f0'}),
             
-            # Main content
-            html.Div([
-                # Wind power density map
-                dcc.Graph(id='wind-power-map'),
-                
-                # Daily average maps
-                dcc.Graph(id='daily-average-maps'),
-                
-                # Country rankings and time series
-                html.Div([
-                    html.Div([
-                        dcc.Graph(id='country-rankings')
-                    ], style={'width': '50%', 'display': 'inline-block'}),
-                    
-                    html.Div([
-                        dcc.Graph(id='time-series')
-                    ], style={'width': '50%', 'display': 'inline-block'})
-                ])
-            ])
+            dcc.Tabs(id="tabs", value='tab-general', children=[
+                dcc.Tab(label='General Forecast', value='tab-general'),
+                dcc.Tab(label='Wind Power Plants', value='tab-plants'),
+            ]),
+            html.Div(id='tabs-content')
         ])
         
     def setup_callbacks(self):
@@ -309,6 +311,31 @@ class GFSDashboard:
             return options, value
             
         @self.app.callback(
+            Output('tabs-content', 'children'),
+            Input('tabs', 'value')
+        )
+        def render_content(tab):
+            if tab == 'tab-general':
+                return html.Div([
+                    dcc.Graph(id='wind-power-map'),
+                    dcc.Graph(id='daily-average-maps'),
+                    html.Div([
+                        html.Div([
+                            dcc.Graph(id='country-rankings')
+                        ], style={'width': '50%', 'display': 'inline-block'}),
+                        
+                        html.Div([
+                            dcc.Graph(id='time-series')
+                        ], style={'width': '50%', 'display': 'inline-block'})
+                    ])
+                ])
+            elif tab == 'tab-plants':
+                return html.Div([
+                    dcc.Graph(id='plant-map'),
+                    dcc.Graph(id='plant-time-series')
+                ])
+
+        @self.app.callback(
             Output('wind-power-map', 'figure'),
             Output('daily-average-maps', 'figure'),
             Output('country-rankings', 'figure'),
@@ -317,7 +344,7 @@ class GFSDashboard:
             Input('cycle-dropdown', 'value'),
             Input('hour-slider', 'value')
         )
-        def update_charts(selected_date, selected_cycle, selected_hour):
+        def update_general_charts(selected_date, selected_cycle, selected_hour):
             if not selected_date or not selected_cycle:
                 empty_fig = go.Figure()
                 return empty_fig, empty_fig, empty_fig, empty_fig
@@ -333,6 +360,44 @@ class GFSDashboard:
             time_series = self.create_time_series_chart(forecast_data)
             
             return wind_map, daily_maps, country_chart, time_series
+
+        @self.app.callback(
+            Output('plant-map', 'figure'),
+            Output('plant-time-series', 'figure'),
+            Input('date-dropdown', 'value'),
+            Input('cycle-dropdown', 'value')
+        )
+        def update_plant_charts(selected_date, selected_cycle):
+            if not selected_date or not selected_cycle:
+                return go.Figure(), go.Figure()
+
+            plant_data = self.load_plant_forecast_data(selected_date, selected_cycle)
+
+            if plant_data.empty:
+                return go.Figure(), go.Figure()
+
+            # Plant Map
+            plant_map = px.scatter_mapbox(
+                plant_data[plant_data['forecast_hour'] == 0],
+                lat='lat',
+                lon='lon',
+                hover_name='lat',
+                zoom=4,
+                center={'lat': 52.5, 'lon': 13.4},
+                title='Wind Power Plant Locations'
+            )
+            plant_map.update_layout(mapbox_style="open-street-map")
+
+            # Plant Time Series
+            plant_time_series = px.line(
+                plant_data,
+                x='forecast_hour',
+                y='wind_power_density',
+                color='lat',
+                title='Wind Power Density Forecast for Power Plants'
+            )
+
+            return plant_map, plant_time_series
             
     def run_server(self):
         """Run the dashboard server"""

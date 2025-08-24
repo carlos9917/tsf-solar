@@ -31,7 +31,7 @@ GFS_VARIABLES = [
 ]
 
 # Database settings
-DATABASE_PATH = "data/processed/gfs_data.db"
+DATABASE_PATH = "data/processed/gfs_data.duckdb"
 
 # Logging settings
 LOG_LEVEL = "INFO"

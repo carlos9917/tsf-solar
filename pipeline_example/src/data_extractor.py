@@ -5,7 +5,7 @@ Handles downloading and processing of NOAA GFS forecast data using correct NOMAD
 """
 
 import os
-import sqlite3
+import duckdb
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -36,41 +36,41 @@ class GFSDataExtractor:
         logger.info("GFS Data Extractor initialized")
         
     def setup_database(self):
-        """Initialize SQLite database"""
+        """Initialize DuckDB database"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
+            conn = duckdb.connect(DATABASE_PATH)
             
             # Create tables
-            cursor.execute("""
+            conn.execute("CREATE SEQUENCE IF NOT EXISTS gfs_forecasts_id_seq;")
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS gfs_forecasts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id INTEGER PRIMARY KEY DEFAULT nextval('gfs_forecasts_id_seq'),
                     forecast_date TEXT,
                     cycle TEXT,
                     forecast_hour INTEGER,
-                    lat REAL,
-                    lon REAL,
-                    u_wind_100m REAL,
-                    v_wind_100m REAL,
-                    temp_2m REAL,
-                    wind_power_density REAL,
+                    lat DOUBLE,
+                    lon DOUBLE,
+                    u_wind_100m DOUBLE,
+                    v_wind_100m DOUBLE,
+                    temp_2m DOUBLE,
+                    wind_power_density DOUBLE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             
-            cursor.execute("""
+            conn.execute("CREATE SEQUENCE IF NOT EXISTS country_rankings_id_seq;")
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS country_rankings (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id INTEGER PRIMARY KEY DEFAULT nextval('country_rankings_id_seq'),
                     forecast_date TEXT,
                     cycle TEXT,
                     country TEXT,
-                    avg_wind_power_density REAL,
+                    avg_wind_power_density DOUBLE,
                     rank INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             
-            conn.commit()
             conn.close()
             logger.info("Database initialized successfully")
             
@@ -201,9 +201,9 @@ class GFSDataExtractor:
                 os.remove(file_path)
                 
     def save_to_database(self, df):
-        """Save processed data to SQLite database"""
+        """Save processed data to DuckDB database"""
         try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            conn = duckdb.connect(DATABASE_PATH)
             
             # Select relevant columns for database
             db_columns = [
@@ -215,8 +215,9 @@ class GFSDataExtractor:
             available_columns = [col for col in db_columns if col in df.columns]
             df_db = df[available_columns]
             
-            # Insert data
-            df_db.to_sql('gfs_forecasts', conn, if_exists='append', index=False)
+            # Insert data using an explicit INSERT statement
+            columns_str = ", ".join(available_columns)
+            conn.execute(f"INSERT INTO gfs_forecasts ({columns_str}) SELECT {columns_str} FROM df_db")
             
             conn.close()
             logger.info(f"Saved {len(df_db)} records to database")
@@ -296,6 +297,4 @@ if __name__ == "__main__":
                        help='GFS cycle for extraction')
     
     args = parser.parse_args()
-    
-    extractor = GFSDataExtractor()
-    extractor.run_extraction(args.date, args.cycle)
+  

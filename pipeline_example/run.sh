@@ -36,6 +36,8 @@ fi
 # --- Scheduler Mode ---
 if [ "$MODE" == "scheduler" ]; then
     echo "Starting the scheduler..."
+    echo "Cleaning up old index files..."
+    find data/raw -name "*.idx" -delete
     source .venv/bin/activate
     python3 src/scheduler.py --mode scheduler
     
