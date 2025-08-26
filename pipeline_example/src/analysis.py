@@ -1,17 +1,53 @@
-
 import duckdb
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 import matplotlib.pyplot as plt
 import os
+import requests
+import zipfile
+from pathlib import Path
 
 def get_country_shapes():
     """
     Downloads and returns country shapes for Europe.
     """
-    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-    europe = world[world['continent'] == 'Europe']
+    # Define the path for storing the shapefile
+    data_dir = Path("data/shapefiles")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    shapefile_path = data_dir / "ne_110m_admin_0_countries.shp"
+    
+    # Download the shapefile components if they don't exist
+    if not shapefile_path.exists():
+        print("Downloading Natural Earth countries shapefile components...")
+        
+        # List of required shapefile components
+        base_url = "https://github.com/nvkelso/natural-earth-vector/raw/master/110m_cultural/"
+        files_to_download = [
+            "ne_110m_admin_0_countries.shp",
+            "ne_110m_admin_0_countries.shx", 
+            "ne_110m_admin_0_countries.dbf",
+            "ne_110m_admin_0_countries.prj",
+            "ne_110m_admin_0_countries.cpg"
+        ]
+        
+        for filename in files_to_download:
+            file_path = data_dir / filename
+            if not file_path.exists():
+                print(f"Downloading {filename}...")
+                url = base_url + filename
+                response = requests.get(url)
+                response.raise_for_status()
+                
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+        
+        print("Shapefile components downloaded successfully.")
+    
+    # Read the shapefile
+    world = gpd.read_file(shapefile_path)
+    europe = world[world['CONTINENT'] == 'Europe']
     return europe
 
 def create_europe_dashboard_data(db_path, date_str, cycle_str, output_dir):
@@ -51,14 +87,17 @@ def create_europe_dashboard_data(db_path, date_str, cycle_str, output_dir):
     
     plot_path = os.path.join(output_dir, f"wpd_map_faceted_{date_str}_{cycle_str}.png")
     plt.savefig(plot_path)
+    plt.close()  # Close the figure to free memory
     print(f"Successfully generated and saved faceted wind power density map to {plot_path}")
 
     total_avg_wpd = gfs_data.groupby(['lat', 'lon'])['wind_power_density'].mean().reset_index()
     geometry = [Point(xy) for xy in zip(total_avg_wpd['lon'], total_avg_wpd['lat'])]
     points_gdf = gpd.GeoDataFrame(total_avg_wpd, geometry=geometry, crs="EPSG:4326")
 
-    joined_gdf = gpd.sjoin(points_gdf, europe, how="inner", op='within')
-    country_avg = joined_gdf.groupby('name')['wind_power_density'].mean().reset_index()
+    joined_gdf = gpd.sjoin(points_gdf, europe, how="inner", predicate='within')
+    # Use the correct column name for country names in Natural Earth data
+    country_column = 'NAME' if 'NAME' in joined_gdf.columns else 'name'
+    country_avg = joined_gdf.groupby(country_column)['wind_power_density'].mean().reset_index()
     country_avg = country_avg.sort_values(by='wind_power_density', ascending=False).reset_index(drop=True)
     country_avg['rank'] = country_avg.index + 1
     
