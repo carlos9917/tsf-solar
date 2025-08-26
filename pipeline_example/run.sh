@@ -43,7 +43,7 @@ if [ "$MODE" == "scheduler" ]; then
     
 # --- Dashboard Mode ---
 elif [ "$MODE" == "dashboard" ]; then
-    echo "Starting the R Shiny dashboard..."
+    echo "Starting the dashboard..."
     python src/dashboard.py
     
 # --- Manual Mode ---

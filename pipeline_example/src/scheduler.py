@@ -71,7 +71,7 @@ class GFSScheduler:
             logger.error(f"Scheduled extraction failed: {e}")
             
     def run_analysis_script(self, date_str, cycle):
-        """Run the R analysis script"""
+        """Run the analysis script"""
         try:
             logger.info(f"Running analysis script for {date_str} cycle {cycle}")
             import subprocess
@@ -80,7 +80,8 @@ class GFSScheduler:
             py_script_path = "src/analysis.py"
             
             # Command to execute the script with arguments
-            command = ["python", py_script_path, date_str, cycle]
+            #command = ["python ", py_script_path, date_str, cycle]
+            command = ["python", py_script_path, "--date", date_str, "--cycle", cycle]
             
             # Execute the command
             result = subprocess.run(command, capture_output=True, text=True)
