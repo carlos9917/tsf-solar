@@ -89,6 +89,9 @@ def create_capacity_features(solar_data: pd.DataFrame) -> pd.DataFrame:
 
         # 10. Recent trend (last 2 years get higher weight)
         recent_cutoff = pd.Timestamp('2023-01-01')
+        # Make timezone-aware if data index is timezone-aware
+        if data.index.tz is not None:
+            recent_cutoff = recent_cutoff.tz_localize(data.index.tz)
         data['is_recent'] = (data.index >= recent_cutoff).astype(int)
 
         # 11. Capacity utilization features
