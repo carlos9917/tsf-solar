@@ -172,7 +172,7 @@ class GFSDashboard:
                         showscale=(i == 0)  # Show colorbar only for first subplot
                     ),
                     text=day_data['wind_power_density'].round(2),
-                    hovertemplate='<b>Wind Power Density</b><br>%{text} W/m²<extra></extra>'
+                    hovertemplate='<b>Wind Power Density</b><br>%{text} W/mÂ²<extra></extra>'
                 ),
                 row=1, col=i+1
             )
@@ -207,7 +207,7 @@ class GFSDashboard:
             orientation='h',
             title='Country Rankings by Average Wind Power Density',
             labels={
-                'avg_wind_power_density': 'Average Wind Power Density (W/m²)',
+                'avg_wind_power_density': 'Average Wind Power Density (W/mÂ²)',
                 'country': 'Country'
             }
         )
@@ -234,7 +234,7 @@ class GFSDashboard:
             title='Average Wind Power Density Over Forecast Period',
             labels={
                 'forecast_hour': 'Forecast Hour',
-                'wind_power_density': 'Average Wind Power Density (W/m²)'
+                'wind_power_density': 'Average Wind Power Density (W/mÂ²)'
             }
         )
         
@@ -342,7 +342,8 @@ class GFSDashboard:
             Output('time-series', 'figure'),
             Input('date-dropdown', 'value'),
             Input('cycle-dropdown', 'value'),
-            Input('hour-slider', 'value')
+            Input('hour-slider', 'value'),
+            prevent_initial_call=True
         )
         def update_general_charts(selected_date, selected_cycle, selected_hour):
             if not selected_date or not selected_cycle:
@@ -365,7 +366,8 @@ class GFSDashboard:
             Output('plant-map', 'figure'),
             Output('plant-time-series', 'figure'),
             Input('date-dropdown', 'value'),
-            Input('cycle-dropdown', 'value')
+            Input('cycle-dropdown', 'value'),
+            prevent_initial_call=True
         )
         def update_plant_charts(selected_date, selected_cycle):
             if not selected_date or not selected_cycle:
