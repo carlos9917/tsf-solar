@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 # Import our improved modules
 from improved_capacity_features import create_capacity_features, estimate_2025_capacity_adjustment
 from improved_solar_model import CapacityAwareForecastingPipeline, evaluate_model_performance
-from notebooks.capacity_adjustment_postprocess import CapacityAdjustmentProcessor
+from capacity_adjustment_postprocess import CapacityAdjustmentProcessor
 
 # Set style and seeds
 sns.set_style("whitegrid")
@@ -401,7 +401,7 @@ original_forecast_path = '../forecast_q1.csv'
 if os.path.exists(original_forecast_path):
     print("\n📈 Applying capacity adjustment to original forecast...")
 
-    from notebooks.capacity_adjustment_postprocess import quick_capacity_fix
+    from capacity_adjustment_postprocess import quick_capacity_fix
 
     adjusted_path = quick_capacity_fix(
         original_forecast_path,
