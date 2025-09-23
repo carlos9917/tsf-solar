@@ -284,7 +284,11 @@ class CapacityAwareForecastingPipeline:
         # Add capacity features for June 2025
         # Use 2025 projections for capacity features
         june_data['year'] = 2025
-        june_data['days_since_start'] = (june_data.index - pd.Timestamp('2022-01-01')).days
+        # Create timezone-aware timestamp if needed
+        start_timestamp = pd.Timestamp('2022-01-01')
+        if june_data.index.tz is not None:
+            start_timestamp = start_timestamp.tz_localize(june_data.index.tz)
+        june_data['days_since_start'] = (june_data.index - start_timestamp).days
         june_data['years_since_start'] = june_data['days_since_start'] / 365.25
 
         # Project capacity features to 2025
