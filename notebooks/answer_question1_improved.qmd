@@ -46,6 +46,15 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Import our improved modules
+import importlib
+import improved_capacity_features
+import improved_solar_model
+from notebooks import capacity_adjustment_postprocess
+
+# Force reload to get latest changes
+importlib.reload(improved_capacity_features)
+importlib.reload(improved_solar_model)
+
 from improved_capacity_features import create_capacity_features, estimate_2025_capacity_adjustment
 from improved_solar_model import CapacityAwareForecastingPipeline, evaluate_model_performance
 from capacity_adjustment_postprocess import CapacityAdjustmentProcessor
