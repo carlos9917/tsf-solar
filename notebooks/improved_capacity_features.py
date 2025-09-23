@@ -134,7 +134,7 @@ def create_weighted_training_data(X_train: pd.DataFrame, y_train: pd.Series,
     """
     # Calculate days from the end of training period
     end_date = X_train.index.max()
-    days_from_end = (end_date - X_train.index).days
+    days_from_end = (end_date - X_train.index).days.values
 
     # Exponential decay weights (more recent = higher weight)
     weights = np.exp(-days_from_end / decay_factor)
