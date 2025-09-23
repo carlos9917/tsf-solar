@@ -134,14 +134,14 @@ def create_weighted_training_data(X_train: pd.DataFrame, y_train: pd.Series,
     """
     # Calculate days from the end of training period
     end_date = X_train.index.max()
-    days_from_end = (end_date - X_train.index).days
-    days_from_end = np.array(days_from_end)
+    time_diff = end_date - X_train.index
+    days_from_end = np.array([td.days for td in time_diff])
 
     # Exponential decay weights (more recent = higher weight)
     weights = np.exp(-days_from_end / decay_factor)
 
     # Normalize weights
-    weights = weights / weights.mean()
+    weights = weights / np.mean(weights)
 
     print(f"Training weights - Min: {weights.min():.3f}, Max: {weights.max():.3f}")
     print(f"Recent data (last 6 months) average weight: {weights[days_from_end <= 180].mean():.3f}")
