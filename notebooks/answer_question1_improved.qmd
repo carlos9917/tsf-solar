@@ -49,7 +49,7 @@ warnings.filterwarnings("ignore")
 import importlib
 import improved_capacity_features
 import improved_solar_model
-from notebooks import capacity_adjustment_postprocess
+import capacity_adjustment_postprocess
 
 # Force reload to get latest changes
 importlib.reload(improved_capacity_features)
