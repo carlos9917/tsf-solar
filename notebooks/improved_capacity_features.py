@@ -6,6 +6,77 @@ from sklearn.preprocessing import PolynomialFeatures
 import warnings
 warnings.filterwarnings('ignore')
 
+def extract_seasonal_capacity_patterns(data: pd.DataFrame) -> dict:
+    """
+    Extract data-driven seasonal capacity installation patterns from historical data.
+    Returns seasonal factors based on actual month-over-month capacity increases.
+    """
+
+    print("Extracting seasonal capacity patterns from historical data...")
+
+    # Calculate monthly peak power (proxy for installed capacity)
+    monthly_peaks = data.groupby([data.index.year, data.index.month])['power'].max()
+
+    # Track month-over-month capacity additions
+    total_additions_by_month = {month: [] for month in range(1, 13)}
+
+    # Group by year and analyze capacity changes
+    for year in monthly_peaks.index.get_level_values(0).unique():
+        if year == data.index.year.min():  # Skip first year (no previous data)
+            continue
+
+        year_data = monthly_peaks[year].dropna()
+        prev_year_data = monthly_peaks.get(year - 1, pd.Series())
+
+        for month in year_data.index:
+            current_peak = year_data[month]
+
+            # Compare with previous month (same year or December of previous year)
+            if month > 1:
+                prev_peak = year_data.get(month - 1, 0)
+            else:
+                prev_peak = prev_year_data.get(12, 0)
+
+            # Only count positive changes as capacity additions
+            if current_peak > prev_peak:
+                capacity_addition = current_peak - prev_peak
+                total_additions_by_month[month].append(capacity_addition)
+
+    # Calculate average additions by month
+    avg_additions_by_month = {}
+    for month in range(1, 13):
+        if total_additions_by_month[month]:
+            avg_additions_by_month[month] = np.mean(total_additions_by_month[month])
+        else:
+            avg_additions_by_month[month] = 0
+
+    # Convert to seasonal factors (relative to average)
+    total_additions = sum(avg_additions_by_month.values())
+    if total_additions > 0:
+        seasonal_factors = {
+            month: (addition / (total_additions / 12)) if total_additions > 0 else 1.0
+            for month, addition in avg_additions_by_month.items()
+        }
+    else:
+        # Conservative fallback: no seasonal bias
+        print("Warning: No clear seasonal pattern detected, using uniform factors")
+        seasonal_factors = {month: 1.0 for month in range(1, 13)}
+
+    # Apply smoothing to avoid extreme factors
+    max_factor = 3.0  # Cap at 3x average
+    min_factor = 0.3  # Floor at 0.3x average
+    seasonal_factors = {
+        month: np.clip(seasonal_factors[month], min_factor, max_factor)
+        for month in seasonal_factors
+    }
+
+    print("Data-driven seasonal capacity factors:")
+    for month, factor in seasonal_factors.items():
+        print(f"  Month {month:2d}: {factor:.3f} "
+              f"(avg additions: {avg_additions_by_month[month]:.1f} MWh)")
+
+    return seasonal_factors
+
 def create_capacity_features(solar_data: pd.DataFrame) -> pd.DataFrame:
     """
     Create robust capacity trend features that capture structural growth
@@ -78,12 +149,9 @@ def create_capacity_features(solar_data: pd.DataFrame) -> pd.DataFrame:
         for year in range(2022, 2026):
             data[f'year_{year}'] = (data['year'] == year).astype(int)
 
-        # 9. Seasonal capacity scaling
-        # Assume new capacity is added more in certain months
-        month_capacity_factors = {
-            1: 0.8, 2: 0.9, 3: 1.0, 4: 1.1, 5: 1.2, 6: 1.2,
-            7: 1.1, 8: 1.0, 9: 1.1, 10: 1.0, 11: 0.9, 12: 0.8
-        }
+        # 9. Data-driven seasonal capacity scaling
+        # Extract actual seasonal installation patterns from historical data
+        month_capacity_factors = extract_seasonal_capacity_patterns(data)
         data['seasonal_capacity_factor'] = data.index.month.map(month_capacity_factors)
         data['adjusted_capacity_trend'] = data['exp_capacity_trend'] * data['seasonal_capacity_factor']
 
